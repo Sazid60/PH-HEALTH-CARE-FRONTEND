@@ -40,3 +40,78 @@ npm run dev
 - we will implement in modular pattern 
 
 ![alt text](image-1.png)
+
+
+
+
+## 65-4 starting the atomic component based journey with nextjs 16
+
+app -> (commonLayout) -> page.tsx (main page)
+
+```tsx
+import { Button } from "@/components/ui/button";
+
+
+export default function Home() {
+  return (
+    <div>
+      <h1>Welcome to the Next.js App</h1>
+      <Button variant="default">
+        Click me
+      </Button>
+    </div>
+  );
+}
+```
+
+## 65-5 Glimps of AI Native Development with ph-health-care
+
+- app -> (commonLayout) -> page.tsx (main page)
+
+
+```tsx
+
+export default function Home() {
+  return (
+    <div>
+
+    </div>
+  );
+}
+
+```
+
+- components -> (shared) -> PublicNavbar.tsx
+
+```tsx
+import Link from "next/link";
+
+const PublicNavbar = () => {
+    return (
+        <header>
+            <div>
+                <Link  href="/" className=" flex items-center justify-center text-xl font-bold text-primary">PH-Health</Link>
+            </div>
+        </header>
+    );
+};
+
+export default PublicNavbar;
+```
+- app -> (commonLayout) -> layout.tsx
+
+```tsx
+import PublicNavbar from "@/components/modules/shared/PublicNavbar";
+
+const CommonLayout = ({ children }: { children: React.ReactNode }) => {
+    return (
+        <>
+            <PublicNavbar />
+            {children}
+            
+        </>
+    );
+};
+
+export default CommonLayout;
+```
