@@ -15,3 +15,21 @@ GitHub Link: https://github.com/Apollo-Level2-Web-Dev/ph-health-care/tree/part-2
 - `We can easily grab the cookie easily when frontend and backend uses the similar server.` but next.js backend is not perfect enough.there is some issues in scalability and it will be bit slower and further upgradation in micro service will not be available.
 - `We can not grab the cookie easily when frontend and backend uses different server.` there are some extra layer like cors.
 - we can solve this cookie will be handled by backend no much lingering in frontend. we will just send from frontend and backend will verify the cookie token.
+
+## 66-2 Why do you have to use ‘use client’
+
+- install 
+
+```
+npm install react-hook-form
+```
+
+```
+npm install @hookform/resolvers zod
+```
+
+```
+npx shadcn@latest add form
+```
+
+## 66-3 Login component and functionality part-1
