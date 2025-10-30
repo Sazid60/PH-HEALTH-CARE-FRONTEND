@@ -543,3 +543,53 @@ export const config = {
     matcher: ['/dashboard/:path*', "/login", "/register", "/forgot-password"],
 }
 ```
+
+## 66-6 proxy.ts issue fix and get me route use.
+
+- there is some issue in proxy.ts file we have to fix it. the login route is visible even if the user is logged in 
+
+- src -> proxy.ts
+
+```ts 
+
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
+
+// This function can be marked `async` if using `await` inside
+export function proxy(request: NextRequest) {
+
+    const token = request.cookies.get('accessToken')?.value
+
+    const { pathname } = request.nextUrl;
+
+    const protectedPaths = ['/dashboard', '/profile', '/appointments']
+
+    const authRoutes = ['/login', '/register', '/forgot-password']
+
+    //   return NextResponse.redirect(new URL('/', request.url))
+
+    const isProtectedPath = protectedPaths.some((path) => {
+        pathname.startsWith(path);
+
+    })
+
+    const isAuthRoute = authRoutes.some((route) => pathname === route)
+
+
+    if(isProtectedPath && !token){
+        return NextResponse.redirect(new URL("/login", request.nextUrl))
+    }
+
+    if(isAuthRoute && token ){
+        return NextResponse.redirect(new URL("/", request.nextUrl))
+    }
+
+    return NextResponse.next();
+
+}
+
+// See "Matching Paths" below to learn more
+export const config = {
+    matcher: ['/dashboard/:path*', "/login", "/register", "/forgot-password"],
+}
+```

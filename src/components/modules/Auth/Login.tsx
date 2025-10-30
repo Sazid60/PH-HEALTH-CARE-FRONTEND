@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/form";
 import loginUser from "@/utils/login";
 import { useRouter } from "next/navigation";
+import checkAuthStatus from "@/utils/auth";
 
 
 
@@ -67,7 +68,9 @@ export default function Login() {
             if (res.success) {
                 // window.location.href = "/dashboard";
 
-                router.push("/dashboard")
+                // router.push("/dashboard")
+
+                const authStatus = await checkAuthStatus();
             } else {
                 setError(res.message || "Login Failed, Please Try Again")
             }
