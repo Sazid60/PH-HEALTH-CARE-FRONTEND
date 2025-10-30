@@ -27,6 +27,7 @@ import {
     FormMessage,
 } from "@/components/ui/form";
 import loginUser from "@/utils/login";
+import { useRouter } from "next/navigation";
 
 
 
@@ -44,6 +45,7 @@ export default function Login() {
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const router = useRouter() // as we are using "use client" we are using this if its "use server" we have to use redirect 
 
     const form = useForm<LoginFormData>({
         resolver: zodResolver(loginSchema),
@@ -61,6 +63,15 @@ export default function Login() {
         try {
             const res = await loginUser(data.email, data.password)
             console.log("Login Successful :", res)
+
+            if (res.success) {
+                // window.location.href = "/dashboard";
+
+                router.push("/dashboard")
+            } else {
+                setError(res.message || "Login Failed, Please Try Again")
+            }
+
         } catch (error: any) {
             setError(error.message || "Something went wrong check Your Credentials and Try again");
         } finally {
