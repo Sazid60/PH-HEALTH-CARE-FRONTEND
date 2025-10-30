@@ -1,10 +1,11 @@
-import React from 'react';
+import DashboardComponent from "@/components/modules/Dashboard/Dashboard";
+
 
 const Dashboard = () => {
     return (
-        <div className="flex justify-center items-center h-full text-2xl font-bold">
-            Welcome to Dashboard 
-        </div>
+        <>
+           <DashboardComponent/>
+        </>
     );
 };
 
