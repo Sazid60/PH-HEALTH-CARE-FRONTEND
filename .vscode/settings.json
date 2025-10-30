@@ -1,5 +1,6 @@
 {
     "cSpell.words": [
         "upgradation"
-    ]
+    ],
+    "postman.settings.dotenv-detection-notification-visibility": false
 }

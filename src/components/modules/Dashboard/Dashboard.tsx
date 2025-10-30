@@ -10,7 +10,7 @@ import {
 
 import data from "./data.json"
 
-export default function DashboardComponent() {
+export default async function DashboardComponent() {
   return (
     <SidebarProvider
       style={

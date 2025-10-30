@@ -1,78 +1,97 @@
+'use client';
 import Link from "next/link";
-import { Button } from '@/components/ui/button';
-import { Sheet, SheetClose, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
+
+
 import { Menu } from "lucide-react";
+import checkAuthStatus from "@/utils/auth";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
+
+const {user} = await checkAuthStatus();
 const PublicNavbar = () => {
-    const navItems = [
-        { name: "Home", href: "/" },
-        { name: "Consultation", href: "/consultation" },
-        { name: "Health Plans", href: "/health-plans" },
-        { name: "Diagnostics", href: "/diagnostics" },
-        { name: "NGOs", href: "/ngos" },
-    ]
-    return (
-        <header className="sticky top-0 z-50 h-16 border-b flex w-full items-center justify-around bg-background/95  px-2 md:px-4 shadow-md">
-            <div className="container mx-auto flex h-16 items-center justify-between px-4">
-                <div>
-                    <Link href="/" className=" flex items-center justify-center text-xl font-bold text-primary">PH-Health</Link>
-                </div>
-                <nav className="hidden md:block">
-                    <ul className="flex space-x-4">
-                        {navItems.map((item) => (
-                            <li key={item.name}>
-                                <Link href={item.href} className="text-sm text-muted-foreground hover:text-foreground">
-                                    {item.name}
-                                </Link>
-                            </li>
-                        ))}
-                    </ul>
-                </nav>
+  
+  const {role} = user || {role: 'guest'};
+  
+  const navItems = [
+    { href: "#", label: "Consultation" },
+    { href: "#", label: "Health Plans" },
+    { href: "#", label: "Medicine" },
+    { href: "#", label: "Diagnostics" },
+    { href: "#", label: "NGOs" },
+  ];
 
-                <div className="hidden md:block">
-                    <Link href="/login" >
-                        <Button>
-                            Login
-                        </Button>
+  if(role === 'ADMIN'){
+    navItems.push({ href: "/dashboard/admin", label: "Admin Dashboard" });
+  }
+  return (
+    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur  dark:bg-background/95">
+      <div className="container mx-auto flex h-16 items-center justify-between px-4">
+        <Link href="/" className="flex items-center space-x-2">
+          <span className="text-xl font-bold text-primary">PH Doc</span>
+        </Link>
+
+        <nav className="hidden md:flex items-center space-x-6 text-sm font-medium">
+          {navItems.map((link) => (
+            <Link
+              key={link.label}
+              href={link.href}
+              className="text-foreground hover:text-primary transition-colors"
+            >
+              {link.label}
+            </Link>
+          ))}
+        </nav>
+
+        <div className="hidden md:flex items-center space-x-2">
+          {role !== 'guest' ? (
+            <Button variant="destructive">Logout</Button>
+          ) : (
+            <Link href="/login" className="text-lg font-medium">
+              <Button>Login</Button>
+            </Link>
+          )}
+        </div>
+
+        {/* Mobile Menu */}
+
+        <div className="md:hidden">
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="outline">
+                {" "}
+                <Menu />{" "}
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-[300px] sm:w-[400px] p-4">
+              <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
+              <nav className="flex flex-col space-y-4 mt-8">
+                {navItems.map((link) => (
+                  <Link
+                    key={link.label}
+                    href={link.href}
+                    className="text-lg font-medium"
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+                <div className="border-t pt-4 flex flex-col space-y-4">
+                  <div className="flex justify-center"></div>
+                  {role!== 'guest' ? (
+                    <Button variant="destructive">Logout</Button>
+                  ) : (
+                    <Link href="/login" className="text-lg font-medium">
+                      <Button>Login</Button>
                     </Link>
+                  )}
                 </div>
-            </div>
-            {/* mobile menu */}
-            <div className="md:hidden">
-                <Sheet>
-                    <SheetTrigger asChild>
-                        <Button variant="outline"> <Menu/> </Button>
-                    </SheetTrigger>
-                    <SheetContent>
-                        <SheetHeader>
-                            <SheetTitle>Edit profile</SheetTitle>
-                            <SheetDescription>
-                                Make changes to your profile here. Click save when you&apos;re done.
-                            </SheetDescription>
-                        </SheetHeader>
-                        <div className="grid flex-1 auto-rows-min gap-6 px-4">
-                            <div className="grid gap-3">
-                                <Label htmlFor="sheet-demo-name">Name</Label>
-                                <Input id="sheet-demo-name" defaultValue="Pedro Duarte" />
-                            </div>
-                            <div className="grid gap-3">
-                                <Label htmlFor="sheet-demo-username">Username</Label>
-                                <Input id="sheet-demo-username" defaultValue="@peduarte" />
-                            </div>
-                        </div>
-                        <SheetFooter>
-                            <Button type="submit">Save changes</Button>
-                            <SheetClose asChild>
-                                <Button variant="outline">Close</Button>
-                            </SheetClose>
-                        </SheetFooter>
-                    </SheetContent>
-                </Sheet>
-            </div>
-        </header>
-    );
+              </nav>
+            </SheetContent>
+          </Sheet>
+        </div>
+      </div>
+    </header>
+  );
 };
 
 export default PublicNavbar;
