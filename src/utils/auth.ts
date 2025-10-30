@@ -1,31 +1,33 @@
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const checkAuthStatus = async () => {
     try {
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/me`, {
             method: "GET",
             headers: {
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
             },
-            credentials: "include"
+            credentials: "include",
         });
         const data = await res.json();
-        console.log(data)
 
-        if (!res.ok) {
-            throw new Error("Failed to fetch auth status");
+        if(!res.ok){
+            throw new Error("Failed to fetch authentication status.");
         }
-
+        
         return {
             isAuthenticated: true,
-            user: data.user
+            user: data.data,
         }
-    } catch (error: any) {
-        console.log(error.message)
-        return {
+
+    } catch (err: any) {
+        console.log(err.message)
+        return{
             isAuthenticated: false,
-            user: null
+            user: null,
         }
     }
+
 }
 
 export default checkAuthStatus;
