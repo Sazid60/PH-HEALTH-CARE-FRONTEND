@@ -29,6 +29,7 @@ import {
 import { useRouter } from "next/navigation";
 import loginUser from "@/utils/login";
 import checkAuthStatus from "@/utils/auth";
+import { UseUser } from "@/providers/UserProvider";
 
 
 const loginSchema = z.object({
@@ -45,6 +46,7 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  const { setUser } = UseUser();
 
   const form = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -65,6 +67,8 @@ export default function Login() {
 
       if (res.success) {
         const authStatus = await checkAuthStatus();
+
+        setUser(authStatus.user); // set user immediately
 
         if(authStatus.isAuthenticated && authStatus.user){
           const {role} = authStatus.user;
