@@ -2,7 +2,6 @@
 
 import * as React from "react"
 import {
-
   IconDashboard,
   IconHelp,
   IconInnerShadowTop,
@@ -24,14 +23,12 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 import Link from "next/link"
-import checkAuthStatus from "@/utils/auth"
 
 
 
-const {user} = await checkAuthStatus();
-console.log(user)
 
-const {role} = user|| {role: 'guest'};
+
+
 
 const navMainItems = [
     {
@@ -56,27 +53,14 @@ const navMainItems = [
     // },
   ]
 
-  if(role === 'ADMIN'){
-    navMainItems.push(
-      {
-        title: "Manage Doctors",
-        url: "/dashboard/admin/manage-doctors",
-        icon: IconSettings,
-      },
-      {
-        title: "Manage Patients",
-        url: "/dashboard/admin/manage-patients",
-        icon: IconUsers,
-      }
-    )
-  }
+  
   
 
 const data = {
   user: {
-    name: user?.name,
-    email: user?.email,
-    avatar: user?.imageUrl,
+    name: '',
+    email: '',
+    avatar: '',
   },
   navMain: navMainItems,
   navSecondary: [
@@ -100,6 +84,9 @@ const data = {
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+
+ 
+
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
