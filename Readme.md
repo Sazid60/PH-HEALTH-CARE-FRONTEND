@@ -323,15 +323,15 @@ export default function RootLayout({
 }
 ```
 
-- while login we will set the user from the login.tsx  component 
+- while login we will set the user from the login.tsx component
 
-```tsx 
+```tsx
 setUser(authStatus.user); // set user immediately
 ```
 
 - Login.tsx
- 
-```tsx 
+
+```tsx
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 import { Button } from "@/components/ui/button";
@@ -364,7 +364,6 @@ import { useRouter } from "next/navigation";
 import loginUser from "@/utils/login";
 import checkAuthStatus from "@/utils/auth";
 import { UseUser } from "@/providers/UserProvider";
-
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Invalid email address" }),
@@ -404,10 +403,10 @@ export default function Login() {
 
         setUser(authStatus.user); // set user immediately
 
-        if(authStatus.isAuthenticated && authStatus.user){
-          const {role} = authStatus.user;
+        if (authStatus.isAuthenticated && authStatus.user) {
+          const { role } = authStatus.user;
 
-          switch(role){
+          switch (role) {
             case "ADMIN":
               router.push("/dashboard/admin");
               break;
@@ -421,7 +420,7 @@ export default function Login() {
               router.push("/");
               break;
           }
-        }else{
+        } else {
           setError("Failed to retrieve user information after login.");
         }
       }
@@ -539,29 +538,31 @@ export default function Login() {
   );
 }
 ```
+
 - how do we use the user info in any component?
 
 - `In client component we will use hook and in server component we will use the provider`
 
-- used in navbar 
+- used in navbar
 
-```tsx 
-'use client';
+```tsx
+"use client";
 import Link from "next/link";
-
 
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { UseUser } from "@/providers/UserProvider";
 
-
-
 const PublicNavbar = () => {
-  
   const { user } = UseUser();
-  const role = user?.role
-  
+  const role = user?.role;
+
   const navItems = [
     { href: "#", label: "Consultation" },
     { href: "#", label: "Health Plans" },
@@ -570,7 +571,7 @@ const PublicNavbar = () => {
     { href: "#", label: "NGOs" },
   ];
 
-  if(role === 'ADMIN'){
+  if (role === "ADMIN") {
     navItems.push({ href: "/admin/dashboard", label: "Admin Dashboard" });
   }
   return (
@@ -648,23 +649,22 @@ export default PublicNavbar;
 
 - used in app-sidebar.tsx file
 
-```tsx 
-"use client"
+```tsx
+"use client";
 
-import * as React from "react"
+import * as React from "react";
 import {
-
   IconDashboard,
   IconHelp,
   IconInnerShadowTop,
   IconSearch,
   IconSettings,
   IconUsers,
-} from "@tabler/icons-react"
+} from "@tabler/icons-react";
 
-import { NavMain } from "@/components/nav-main"
-import { NavSecondary } from "@/components/nav-secondary"
-import { NavUser } from "@/components/nav-user"
+import { NavMain } from "@/components/nav-main";
+import { NavSecondary } from "@/components/nav-secondary";
+import { NavUser } from "@/components/nav-user";
 import {
   Sidebar,
   SidebarContent,
@@ -673,12 +673,10 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@/components/ui/sidebar"
-import Link from "next/link"
-import { UseUser } from "@/providers/UserProvider"
+} from "@/components/ui/sidebar";
+import Link from "next/link";
+import { UseUser } from "@/providers/UserProvider";
 // import checkAuthStatus from "@/utils/auth"
-
-
 
 // const {user} = await checkAuthStatus();
 // console.log(user)
@@ -706,9 +704,7 @@ const navMainItems = [
   //   url: "/dashboard/add-doctor",
   //   icon: IconUsers,
   // },
-]
-
-
+];
 
 const data = {
   user: {
@@ -734,16 +730,14 @@ const data = {
       icon: IconSearch,
     },
   ],
-
-}
+};
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const { user, setUser } = UseUser();
 
-  const { user, setUser } = UseUser()
+  const role = user?.role;
 
-  const role  = user?.role;
-
-  if (role === 'ADMIN') {
+  if (role === "ADMIN") {
     navMainItems.push(
       {
         title: "Manage Doctors",
@@ -755,7 +749,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         url: "/admin/dashboard/manage-patients",
         icon: IconUsers,
       }
-    )
+    );
   }
 
   return (
@@ -783,6 +777,206 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <NavUser user={data.user} />
       </SidebarFooter>
     </Sidebar>
-  )
+  );
 }
+```
+
+## 67-5 Refactoring a few things and the logout feature
+
+- app router functionality transferred in nav-main.tsx
+
+```tsx
+"use client";
+
+import { IconSettings, IconUsers, type Icon } from "@tabler/icons-react";
+import {
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+} from "@/components/ui/sidebar";
+import Link from "next/link";
+import { UseUser } from "@/providers/UserProvider";
+
+export function NavMain({
+  items,
+}: {
+  items: {
+    title: string;
+    url: string;
+    icon?: Icon;
+  }[];
+}) {
+  const { user, setUser } = UseUser();
+
+  const role = user?.role;
+
+  if (role === "ADMIN") {
+    items.push(
+      {
+        title: "Manage Doctors",
+        url: "/admin/dashboard/manage-doctors",
+        icon: IconSettings,
+      },
+      {
+        title: "Manage Patients",
+        url: "/admin/dashboard/manage-patients",
+        icon: IconUsers,
+      }
+    );
+  }
+
+  return (
+    <SidebarGroup>
+      <SidebarGroupContent className="flex flex-col gap-2">
+        <SidebarMenu>
+          {items.map((item) => (
+            <SidebarMenuItem key={item.title}>
+              <Link href={item.url}>
+                <SidebarMenuButton tooltip={item.title}>
+                  {item.icon && <item.icon />}
+                  <span>{item.title}</span>
+                </SidebarMenuButton>
+              </Link>
+            </SidebarMenuItem>
+          ))}
+        </SidebarMenu>
+      </SidebarGroupContent>
+    </SidebarGroup>
+  );
+}
+```
+
+- now lets implement the logout functionality in navbar component
+- there is a problem in the logout functionality. we can not garb the cookie ion app router. if we want to clear the cookie we need to do it on the server side. we can not grab the cookies on the client side and clear it. so we will create a logout route on the (ext.js server ) server side and call that route from the client side to clear the cookies. it means we have to take the help of the API route.
+
+- app -> api -> logout -> route.ts this means `www.example.com/api/logout` will be our backend logout route
+
+```tsx
+import { NextRequest, NextResponse } from "next/server";
+
+export async function POST(request: NextRequest) {
+    const res = NextResponse.redirect(new URL("/login", request.url));
+    res.cookies.delete("accessToken");
+    res.cookies.delete("refreshToken");
+    return res;
+}
+```
+
+- utils -> logOutUser.ts
+
+```tsx
+export const logOutUser = async() =>{
+ await fetch('/api/logout', { method: 'POST' });
+ window.location.href = '/';
+}
+```
+- PublicNavbar.tsx
+
+```tsx 
+'use client';
+import Link from "next/link";
+
+
+import { Menu } from "lucide-react";
+import { UseUser } from "@/providers/UserProvider";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { logOutUser } from "@/utils/logOutUser";
+
+
+
+
+
+
+const PublicNavbar = () => {
+  
+  const {user} = UseUser();
+  const role = user?.role || "guest";
+  
+  const navItems = [
+    { href: "#", label: "Consultation" },
+    { href: "#", label: "Health Plans" },
+    { href: "#", label: "Medicine" },
+    { href: "#", label: "Diagnostics" },
+    { href: "#", label: "NGOs" },
+  ];
+
+  if(role === 'ADMIN'){
+    navItems.push({ href: "/admin/dashboard", label: "Admin Dashboard" });
+  }
+  return (
+    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur  dark:bg-background/95">
+      <div className="container mx-auto flex h-16 items-center justify-between px-4">
+        <Link href="/" className="flex items-center space-x-2">
+          <span className="text-xl font-bold text-primary">PH Doc</span>
+        </Link>
+
+        <nav className="hidden md:flex items-center space-x-6 text-sm font-medium">
+          {navItems.map((link) => (
+            <Link
+              key={link.label}
+              href={link.href}
+              className="text-foreground hover:text-primary transition-colors"
+            >
+              {link.label}
+            </Link>
+          ))}
+        </nav>
+
+        <div className="hidden md:flex items-center space-x-2">
+          {role !== 'guest' ? (
+            <Button variant="destructive" onClick={()=>{
+              logOutUser()
+            }}>Logout</Button>
+          ) : (
+            <Link href="/login" className="text-lg font-medium">
+              <Button>Login</Button>
+            </Link>
+          )}
+        </div>
+
+        {/* Mobile Menu */}
+
+        <div className="md:hidden">
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="outline">
+                {" "}
+                <Menu />{" "}
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-[300px] sm:w-[400px] p-4">
+              <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
+              <nav className="flex flex-col space-y-4 mt-8">
+                {navItems.map((link) => (
+                  <Link
+                    key={link.label}
+                    href={link.href}
+                    className="text-lg font-medium"
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+                <div className="border-t pt-4 flex flex-col space-y-4">
+                  <div className="flex justify-center"></div>
+                  {role!== 'guest' ? (
+                    <Button variant="destructive">Logout</Button>
+                  ) : (
+                    <Link href="/login" className="text-lg font-medium">
+                      <Button>Login</Button>
+                    </Link>
+                  )}
+                </div>
+              </nav>
+            </SheetContent>
+          </Sheet>
+        </div>
+      </div>
+    </header>
+  );
+};
+
+export default PublicNavbar;
 ```

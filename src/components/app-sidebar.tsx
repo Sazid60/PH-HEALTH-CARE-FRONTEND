@@ -2,7 +2,6 @@
 
 import * as React from "react"
 import {
-
   IconDashboard,
   IconHelp,
   IconInnerShadowTop,
@@ -24,46 +23,44 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 import Link from "next/link"
-import { UseUser } from "@/providers/UserProvider"
-// import checkAuthStatus from "@/utils/auth"
 
 
 
-// const {user} = await checkAuthStatus();
-// console.log(user)
 
-// const {role} = user|| {role: 'guest'};
+
+
 
 const navMainItems = [
-  {
-    title: "Dashboard",
-    url: "#",
-    icon: IconDashboard,
-  },
-  // {
-  //   title: "Lifecycle",
-  //   url: "#",
-  //   icon: IconListDetails,
-  // },
-  // {
-  //   title: "Analytics",
-  //   url: "#",
-  //   icon: IconChartBar,
-  // },
-  // {
-  //   title: "Add Doctor",
-  //   url: "/dashboard/add-doctor",
-  //   icon: IconUsers,
-  // },
-]
+    {
+      title: "Dashboard",
+      url: "#",
+      icon: IconDashboard,
+    },
+    // {
+    //   title: "Lifecycle",
+    //   url: "#",
+    //   icon: IconListDetails,
+    // },
+    // {
+    //   title: "Analytics",
+    //   url: "#",
+    //   icon: IconChartBar,
+    // },
+    // {
+    //   title: "Add Doctor",
+    //   url: "/dashboard/add-doctor",
+    //   icon: IconUsers,
+    // },
+  ]
 
-
+  
+  
 
 const data = {
   user: {
-    name: "",
-    email: "",
-    avatar: "",
+    name: '',
+    email: '',
+    avatar: '',
   },
   navMain: navMainItems,
   navSecondary: [
@@ -83,29 +80,12 @@ const data = {
       icon: IconSearch,
     },
   ],
-
+ 
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
-  const { user, setUser } = UseUser()
-
-  const role  = user?.role;
-
-  if (role === 'ADMIN') {
-    navMainItems.push(
-      {
-        title: "Manage Doctors",
-        url: "/admin/dashboard/manage-doctors",
-        icon: IconSettings,
-      },
-      {
-        title: "Manage Patients",
-        url: "/admin/dashboard/manage-patients",
-        icon: IconUsers,
-      }
-    )
-  }
+ 
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>

@@ -3,16 +3,20 @@ import Link from "next/link";
 
 
 import { Menu } from "lucide-react";
+import { UseUser } from "@/providers/UserProvider";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { UseUser } from "@/providers/UserProvider";
+import { logOutUser } from "@/utils/logOutUser";
+
+
+
 
 
 
 const PublicNavbar = () => {
   
-  const { user } = UseUser();
-  const role = user?.role
+  const {user} = UseUser();
+  const role = user?.role || "guest";
   
   const navItems = [
     { href: "#", label: "Consultation" },
@@ -45,8 +49,10 @@ const PublicNavbar = () => {
         </nav>
 
         <div className="hidden md:flex items-center space-x-2">
-          {user ? (
-            <Button variant="destructive">Logout</Button>
+          {role !== 'guest' ? (
+            <Button variant="destructive" onClick={()=>{
+              logOutUser()
+            }}>Logout</Button>
           ) : (
             <Link href="/login" className="text-lg font-medium">
               <Button>Login</Button>
@@ -78,7 +84,7 @@ const PublicNavbar = () => {
                 ))}
                 <div className="border-t pt-4 flex flex-col space-y-4">
                   <div className="flex justify-center"></div>
-                  {user ? (
+                  {role!== 'guest' ? (
                     <Button variant="destructive">Logout</Button>
                   ) : (
                     <Link href="/login" className="text-lg font-medium">
