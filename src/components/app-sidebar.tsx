@@ -24,59 +24,46 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 import Link from "next/link"
-import checkAuthStatus from "@/utils/auth"
+import { UseUser } from "@/providers/UserProvider"
+// import checkAuthStatus from "@/utils/auth"
 
 
 
-const {user} = await checkAuthStatus();
-console.log(user)
+// const {user} = await checkAuthStatus();
+// console.log(user)
 
-const {role} = user|| {role: 'guest'};
+// const {role} = user|| {role: 'guest'};
 
 const navMainItems = [
-    {
-      title: "Dashboard",
-      url: "#",
-      icon: IconDashboard,
-    },
-    // {
-    //   title: "Lifecycle",
-    //   url: "#",
-    //   icon: IconListDetails,
-    // },
-    // {
-    //   title: "Analytics",
-    //   url: "#",
-    //   icon: IconChartBar,
-    // },
-    // {
-    //   title: "Add Doctor",
-    //   url: "/dashboard/add-doctor",
-    //   icon: IconUsers,
-    // },
-  ]
+  {
+    title: "Dashboard",
+    url: "#",
+    icon: IconDashboard,
+  },
+  // {
+  //   title: "Lifecycle",
+  //   url: "#",
+  //   icon: IconListDetails,
+  // },
+  // {
+  //   title: "Analytics",
+  //   url: "#",
+  //   icon: IconChartBar,
+  // },
+  // {
+  //   title: "Add Doctor",
+  //   url: "/dashboard/add-doctor",
+  //   icon: IconUsers,
+  // },
+]
 
-  if(role === 'ADMIN'){
-    navMainItems.push(
-      {
-        title: "Manage Doctors",
-        url: "/dashboard/admin/manage-doctors",
-        icon: IconSettings,
-      },
-      {
-        title: "Manage Patients",
-        url: "/dashboard/admin/manage-patients",
-        icon: IconUsers,
-      }
-    )
-  }
-  
+
 
 const data = {
   user: {
-    name: user?.name,
-    email: user?.email,
-    avatar: user?.imageUrl,
+    name: "",
+    email: "",
+    avatar: "",
   },
   navMain: navMainItems,
   navSecondary: [
@@ -96,10 +83,30 @@ const data = {
       icon: IconSearch,
     },
   ],
- 
+
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+
+  const { user, setUser } = UseUser()
+
+  const role  = user?.role;
+
+  if (role === 'ADMIN') {
+    navMainItems.push(
+      {
+        title: "Manage Doctors",
+        url: "/admin/dashboard/manage-doctors",
+        icon: IconSettings,
+      },
+      {
+        title: "Manage Patients",
+        url: "/admin/dashboard/manage-patients",
+        icon: IconUsers,
+      }
+    )
+  }
+
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>

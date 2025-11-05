@@ -3,15 +3,16 @@ import Link from "next/link";
 
 
 import { Menu } from "lucide-react";
-import checkAuthStatus from "@/utils/auth";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { UseUser } from "@/providers/UserProvider";
 
 
-const {user} = await checkAuthStatus();
+
 const PublicNavbar = () => {
   
-  const {role} = user || {role: 'guest'};
+  const { user } = UseUser();
+  const role = user?.role
   
   const navItems = [
     { href: "#", label: "Consultation" },
@@ -22,7 +23,7 @@ const PublicNavbar = () => {
   ];
 
   if(role === 'ADMIN'){
-    navItems.push({ href: "/dashboard/admin", label: "Admin Dashboard" });
+    navItems.push({ href: "/admin/dashboard", label: "Admin Dashboard" });
   }
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur  dark:bg-background/95">
@@ -44,7 +45,7 @@ const PublicNavbar = () => {
         </nav>
 
         <div className="hidden md:flex items-center space-x-2">
-          {role !== 'guest' ? (
+          {user ? (
             <Button variant="destructive">Logout</Button>
           ) : (
             <Link href="/login" className="text-lg font-medium">
@@ -77,7 +78,7 @@ const PublicNavbar = () => {
                 ))}
                 <div className="border-t pt-4 flex flex-col space-y-4">
                   <div className="flex justify-center"></div>
-                  {role!== 'guest' ? (
+                  {user ? (
                     <Button variant="destructive">Logout</Button>
                   ) : (
                     <Link href="/login" className="text-lg font-medium">
