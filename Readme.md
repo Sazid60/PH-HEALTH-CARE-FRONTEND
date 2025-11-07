@@ -394,3 +394,135 @@ const RegisterForm = () => {
 
 export default RegisterForm;
 ```
+
+## 66-5 Submitting Form With Server Action
+
+- src -> services -> auth -> registerPatient.ts
+
+```tsx
+/* eslint-disable @typescript-eslint/no-explicit-any */
+"use server"
+
+export const registerPatient = async (_currentState: any, formData: any): Promise<any> => {
+    // register patient logic here
+    try {
+        const registerData = {
+            password: formData.get("password"),
+            patient: {
+                name: formData.get("name"),
+                address: formData.get("address"),
+                email: formData.get("email"),
+            }
+        }
+
+        const newFormData = new FormData()
+        // new form data is created because original form data is formatted into an object then again needs to converted to form data as our backend only accepts form data
+
+        newFormData.append("data", JSON.stringify(registerData))
+
+        const res = await fetch("http://localhost:5000/api/v1/user/create-patient", {
+            method: "POST",
+            body: newFormData
+        }).then(res => res.json())
+
+        console.log(res)
+        return res
+
+    } catch (error) {
+        console.error("Error registering patient:", error)
+        return {
+            error: "Error registering patient"
+        }
+    }
+};
+
+```
+
+- components -> register-form.tsx (importing and using the server action in useActionState hook)
+
+```tsx
+
+
+"use client";
+import { useActionState } from "react";
+import { Button } from "./ui/button";
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "./ui/field";
+import { Input } from "./ui/input";
+import { registerPatient } from "@/services/auth/registerPatient";
+
+
+const RegisterForm = () => {
+    const [state, formAction, isPending] = useActionState(registerPatient, null)
+
+    console.log("state :", state)
+
+    return (
+        <form action={formAction}>
+            <FieldGroup>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Name */}
+                    <Field>
+                        <FieldLabel htmlFor="name">Full Name</FieldLabel>
+                        <Input id="name" name="name" type="text" placeholder="John Doe" />
+
+                    </Field>
+                    {/* Address */}
+                    <Field>
+                        <FieldLabel htmlFor="address">Address</FieldLabel>
+                        <Input
+                            id="address"
+                            name="address"
+                            type="text"
+                            placeholder="123 Main St"
+                        />
+
+                    </Field>
+                    {/* Email */}
+                    <Field>
+                        <FieldLabel htmlFor="email">Email</FieldLabel>
+                        <Input
+                            id="email"
+                            name="email"
+                            type="email"
+                            placeholder="m@example.com"
+                        />
+
+                    </Field>
+                    {/* Password */}
+                    <Field>
+                        <FieldLabel htmlFor="password">Password</FieldLabel>
+                        <Input id="password" name="password" type="password" />
+
+                    </Field>
+                    {/* Confirm Password */}
+                    <Field className="md:col-span-2">
+                        <FieldLabel htmlFor="confirmPassword">Confirm Password</FieldLabel>
+                        <Input
+                            id="confirmPassword"
+                            name="confirmPassword"
+                            type="password"
+                        />
+
+                    </Field>
+                </div>
+                <FieldGroup className="mt-4">
+                    <Field>
+                        <Button type="submit" disabled={isPending}>
+                            {isPending ? "Creating Account..." : "Create Account"}
+                        </Button>
+                        <FieldDescription className="px-6 text-center">
+                            Already have an account?{" "}
+                            <a href="/login" className="text-blue-600 hover:underline">
+                                Sign in
+                            </a>
+                        </FieldDescription>
+                    </Field>
+                </FieldGroup>
+            </FieldGroup>
+        </form>
+    );
+};
+
+export default RegisterForm;
+```
+
