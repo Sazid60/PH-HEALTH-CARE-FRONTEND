@@ -1,20 +1,31 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 "use client";
+import { useActionState } from "react";
 import { Button } from "./ui/button";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "./ui/field";
 import { Input } from "./ui/input";
 
 
 const RegisterForm = () => {
+    const [state, formAction, isPending] = useActionState((currentState : any, formData : any) => {
+        console.log("currentState",currentState)
+        console.log("formData", formData.get("name"))
+
+        return { success: true  };
+     }, null)
+
+    console.log("state :", state)
+
     return (
-        <form>
+        <form action={formAction}>
             <FieldGroup>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Name */}
                     <Field>
                         <FieldLabel htmlFor="name">Full Name</FieldLabel>
                         <Input id="name" name="name" type="text" placeholder="John Doe" />
-    
+
                     </Field>
                     {/* Address */}
                     <Field>
@@ -57,10 +68,9 @@ const RegisterForm = () => {
                 </div>
                 <FieldGroup className="mt-4">
                     <Field>
-                        <Button type="submit">
-                            Create Account
+                        <Button type="submit" disabled={isPending}>
+                            {isPending ? "Creating Account..." : "Create Account"}
                         </Button>
-
                         <FieldDescription className="px-6 text-center">
                             Already have an account?{" "}
                             <a href="/login" className="text-blue-600 hover:underline">

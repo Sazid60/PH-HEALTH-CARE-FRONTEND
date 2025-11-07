@@ -268,3 +268,129 @@ const RegisterForm = () => {
 
 export default RegisterForm;
 ```
+
+## 66-4 Form Handling With Useactionstate Hook
+
+- Implement form handling using useActionState hook in login-form.tsx and register-form.tsx components. this hook will help manage form state, handle submissions, and provide feedback to users during the authentication process. this is a unique procedure 
+
+[useActionState](https://react.dev/reference/react/useActionState)
+
+
+```jsx
+const [state, formAction, isPending] = useActionState(fn, initialState, permalink?);
+```
+
+- we will use `useActionState` hook with the `form-action` pattern in next.js. this is a unique procedure of next.js
+-  for handling form action the hook works a lot. 
+-  `useActionState` gives three things 
+  1. isPending - boolean value - shows the action is in pending state
+  2. formAction - function - this function will wrap the form action function (when the form is submitted this function will be called)
+  3. state - object - contains the state of the action (like errors etc)
+
+- `useActionState` takes 3 things as a parameter
+  1. fn - the function involved with api hit like fetch function.
+  2. initialState
+  3. permalink?
+
+
+| Element        | Type              | Purpose                                      |
+| -------------- | ----------------- | -------------------------------------------- |
+| `fn`           | Function          | The action logic (API or DB call)            |
+| `initialState` | Any               | Starting value of `state`                    |
+| `permalink?`   | string (optional) | Persistent key for state between navigations |
+| `state`        | object            | Current state (result of `fn`)               |
+| `formAction`   | function          | Passed to `<form action={formAction}>`       |
+| `isPending`    | boolean           | True when action is running                  |
+
+
+- components -> register-form.tsx (miniature usage of useActionState hook)
+
+```tsx
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+"use client";
+import { useActionState } from "react";
+import { Button } from "./ui/button";
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "./ui/field";
+import { Input } from "./ui/input";
+
+
+const RegisterForm = () => {
+    const [state, formAction, isPending] = useActionState((currentState : any, formData : any) => {
+        console.log("currentState",currentState)
+        console.log("formData", formData.get("name"))
+
+        return { success: true  };
+     }, null)
+
+    console.log("state :", state)
+
+    return (
+        <form action={formAction}>
+            <FieldGroup>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Name */}
+                    <Field>
+                        <FieldLabel htmlFor="name">Full Name</FieldLabel>
+                        <Input id="name" name="name" type="text" placeholder="John Doe" />
+
+                    </Field>
+                    {/* Address */}
+                    <Field>
+                        <FieldLabel htmlFor="address">Address</FieldLabel>
+                        <Input
+                            id="address"
+                            name="address"
+                            type="text"
+                            placeholder="123 Main St"
+                        />
+
+                    </Field>
+                    {/* Email */}
+                    <Field>
+                        <FieldLabel htmlFor="email">Email</FieldLabel>
+                        <Input
+                            id="email"
+                            name="email"
+                            type="email"
+                            placeholder="m@example.com"
+                        />
+
+                    </Field>
+                    {/* Password */}
+                    <Field>
+                        <FieldLabel htmlFor="password">Password</FieldLabel>
+                        <Input id="password" name="password" type="password" />
+
+                    </Field>
+                    {/* Confirm Password */}
+                    <Field className="md:col-span-2">
+                        <FieldLabel htmlFor="confirmPassword">Confirm Password</FieldLabel>
+                        <Input
+                            id="confirmPassword"
+                            name="confirmPassword"
+                            type="password"
+                        />
+
+                    </Field>
+                </div>
+                <FieldGroup className="mt-4">
+                    <Field>
+                        <Button type="submit" disabled={isPending}>
+                            {isPending ? "Creating Account..." : "Create Account"}
+                        </Button>
+                        <FieldDescription className="px-6 text-center">
+                            Already have an account?{" "}
+                            <a href="/login" className="text-blue-600 hover:underline">
+                                Sign in
+                            </a>
+                        </FieldDescription>
+                    </Field>
+                </FieldGroup>
+            </FieldGroup>
+        </form>
+    );
+};
+
+export default RegisterForm;
+```
