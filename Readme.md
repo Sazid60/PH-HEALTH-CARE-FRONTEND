@@ -394,3 +394,408 @@ const RegisterForm = () => {
 
 export default RegisterForm;
 ```
+
+## 66-5 Submitting Form With Server Action
+
+- src -> services -> auth -> registerPatient.ts
+
+```tsx
+/* eslint-disable @typescript-eslint/no-explicit-any */
+"use server"
+
+export const registerPatient = async (_currentState: any, formData: any): Promise<any> => {
+    // register patient logic here
+    try {
+        const registerData = {
+            password: formData.get("password"),
+            patient: {
+                name: formData.get("name"),
+                address: formData.get("address"),
+                email: formData.get("email"),
+            }
+        }
+
+        const newFormData = new FormData()
+        // new form data is created because original form data is formatted into an object then again needs to converted to form data as our backend only accepts form data
+
+        newFormData.append("data", JSON.stringify(registerData))
+
+        const res = await fetch("http://localhost:5000/api/v1/user/create-patient", {
+            method: "POST",
+            body: newFormData
+        }).then(res => res.json())
+
+        console.log(res)
+        return res
+
+    } catch (error) {
+        console.error("Error registering patient:", error)
+        return {
+            error: "Error registering patient"
+        }
+    }
+};
+
+```
+
+- components -> register-form.tsx (importing and using the server action in useActionState hook)
+
+```tsx
+
+
+"use client";
+import { useActionState } from "react";
+import { Button } from "./ui/button";
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "./ui/field";
+import { Input } from "./ui/input";
+import { registerPatient } from "@/services/auth/registerPatient";
+
+
+const RegisterForm = () => {
+    const [state, formAction, isPending] = useActionState(registerPatient, null)
+
+    console.log("state :", state)
+
+    return (
+        <form action={formAction}>
+            <FieldGroup>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Name */}
+                    <Field>
+                        <FieldLabel htmlFor="name">Full Name</FieldLabel>
+                        <Input id="name" name="name" type="text" placeholder="John Doe" />
+
+                    </Field>
+                    {/* Address */}
+                    <Field>
+                        <FieldLabel htmlFor="address">Address</FieldLabel>
+                        <Input
+                            id="address"
+                            name="address"
+                            type="text"
+                            placeholder="123 Main St"
+                        />
+
+                    </Field>
+                    {/* Email */}
+                    <Field>
+                        <FieldLabel htmlFor="email">Email</FieldLabel>
+                        <Input
+                            id="email"
+                            name="email"
+                            type="email"
+                            placeholder="m@example.com"
+                        />
+
+                    </Field>
+                    {/* Password */}
+                    <Field>
+                        <FieldLabel htmlFor="password">Password</FieldLabel>
+                        <Input id="password" name="password" type="password" />
+
+                    </Field>
+                    {/* Confirm Password */}
+                    <Field className="md:col-span-2">
+                        <FieldLabel htmlFor="confirmPassword">Confirm Password</FieldLabel>
+                        <Input
+                            id="confirmPassword"
+                            name="confirmPassword"
+                            type="password"
+                        />
+
+                    </Field>
+                </div>
+                <FieldGroup className="mt-4">
+                    <Field>
+                        <Button type="submit" disabled={isPending}>
+                            {isPending ? "Creating Account..." : "Create Account"}
+                        </Button>
+                        <FieldDescription className="px-6 text-center">
+                            Already have an account?{" "}
+                            <a href="/login" className="text-blue-600 hover:underline">
+                                Sign in
+                            </a>
+                        </FieldDescription>
+                    </Field>
+                </FieldGroup>
+            </FieldGroup>
+        </form>
+    );
+};
+
+export default RegisterForm;
+```
+
+- services -> auth -> loginUser.ts 
+
+```ts
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+"use server"
+
+export const loginUser = async (_currentState: any, formData: any): Promise<any> => {
+    try {
+        const loginData = {
+            email: formData.get("email"),
+            password: formData.get("password"),
+        }
+        const response = await fetch("http://localhost:5000/api/v1/auth/login", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(loginData),
+        }).then(res => res.json())
+        return response
+    } catch (error) {
+        console.log(error)
+        return { error: "Error logging in user" }
+    }
+}
+
+```
+
+- components -> login-form.tsx (importing and using the server action in useActionState hook)
+
+```tsx 
+
+"use client";
+import { loginUser } from "@/services/auth/loginUser";
+import { Button } from "./ui/button";
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "./ui/field";
+import { Input } from "./ui/input";
+import { useActionState } from "react";
+const LoginForm = () => {
+const [state, formAction, isPending] = useActionState(loginUser, null);
+
+console.log("state", state)
+
+  return (
+    <form action={formAction} >
+      <FieldGroup>
+        <div className="grid grid-cols-1 gap-4">
+          {/* Email */}
+          <Field>
+            <FieldLabel htmlFor="email">Email</FieldLabel>
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              placeholder="m@example.com"
+              //   required
+            />
+          </Field>
+
+          {/* Password */}
+          <Field>
+            <FieldLabel htmlFor="password">Password</FieldLabel>
+            <Input
+              id="password"
+              name="password"
+              type="password"
+              placeholder="Enter your password"
+              //   required
+            />
+
+          </Field>
+        </div>
+        <FieldGroup className="mt-4">
+          <Field>
+            <Button type="submit" disabled={isPending}>
+              {isPending ? "Logging in..." : "Login"}
+            </Button>
+
+            <FieldDescription className="px-6 text-center">
+              Don&apos;t have an account?{" "}
+              <a href="/register" className="text-blue-600 hover:underline">
+                Sign up
+              </a>
+            </FieldDescription>
+            <FieldDescription className="px-6 text-center">
+              <a
+                href="/forget-password"
+                className="text-blue-600 hover:underline"
+              >
+                Forgot password?
+              </a>
+            </FieldDescription>
+          </Field>
+        </FieldGroup>
+      </FieldGroup>
+    </form>
+  );
+};
+
+export default LoginForm;
+```
+
+- as the login is done in client side we are not able to grab the cookie in our browser which was supposed to be set in the headers in backend response. The reason is the browser can not access next.js server works as it secure. 
+- We have to deal with it further. 
+
+## 66-7 Login Form Error Handling And Data Validations
+
+- form validation works will be done in server action functions
+
+- install zod 
+
+```
+npm install zod
+```
+
+
+| Method        | Behavior                                                      | Example Output                             |
+| ------------- | ------------------------------------------------------------- | ------------------------------------------ |
+| `parse()`     | Throws an exception if data is invalid                        | ❌ crashes your code unless you `try/catch` |
+| `safeParse()` | Returns a result object `{ success: true/false, data/error }` | ✅ never throws, easy to handle             |
+
+- src - services -> loginUser.ts 
+
+
+```ts 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+"use server"
+
+import z from "zod";
+
+const loginValidationZodSchema = z.object({
+    email: z.email({
+        message: "Email is required",
+    }),
+    password: z.string("Password is required").min(6, {
+        error: "Password is required and must be at least 6 characters long",
+    }).max(100, {
+        error: "Password must be at most 100 characters long",
+    }),
+});
+
+export const loginUser = async (_currentState: any, formData: any): Promise<any> => {
+    try {
+        const loginData = {
+            email: formData.get('email'),
+            password: formData.get('password'),
+        }
+
+        const validatedFields = loginValidationZodSchema.safeParse(loginData);
+
+        if (!validatedFields.success) {
+            return {
+                success: false,
+                errors: validatedFields.error.issues.map(issue => {
+                    return {
+                        field: issue.path[0],
+                        message: issue.message,
+                    }
+                })
+            }
+        }
+
+        const res = await fetch("http://localhost:5000/api/v1/auth/login", {
+            method: "POST",
+            body: JSON.stringify(loginData),
+            headers: {
+                "Content-Type": "application/json",
+            },
+        }).then(res => res.json());
+
+
+        return res;
+
+    } catch (error) {
+        console.log(error);
+        return { error: "Login failed" };
+    }
+}
+```
+
+- src -> components -> login-form.tsx 
+
+```tsx 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+"use client";
+import { loginUser } from "@/services/auth/loginUser";
+import { useActionState } from "react";
+import { Button } from "./ui/button";
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "./ui/field";
+import { Input } from "./ui/input";
+
+const LoginForm = () => {
+  const [state, formAction, isPending] = useActionState(loginUser, null);
+
+  const getFieldError = (fieldName: string) => {
+    if (state && state.errors) {
+      const error = state.errors.find((err: any) => err.field === fieldName);
+      return error.message;
+    } else {
+      return null;
+    }
+  };
+  console.log(state);
+  return (
+    <form action={formAction}>
+      <FieldGroup>
+        <div className="grid grid-cols-1 gap-4">
+          {/* Email */}
+          <Field>
+            <FieldLabel htmlFor="email">Email</FieldLabel>
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              placeholder="m@example.com"
+              //   required
+            />
+
+            {getFieldError("email") && (
+              <FieldDescription className="text-red-600">
+                {getFieldError("email")}
+              </FieldDescription>
+            )}
+          </Field>
+
+          {/* Password */}
+          <Field>
+            <FieldLabel htmlFor="password">Password</FieldLabel>
+            <Input
+              id="password"
+              name="password"
+              type="password"
+              placeholder="Enter your password"
+              //   required
+            />
+            {getFieldError("password") && (
+              <FieldDescription className="text-red-600">
+                {getFieldError("password")}
+              </FieldDescription>
+            )}
+          </Field>
+        </div>
+        <FieldGroup className="mt-4">
+          <Field>
+            <Button type="submit" disabled={isPending}>
+              {isPending ? "Logging in..." : "Login"}
+            </Button>
+
+            <FieldDescription className="px-6 text-center">
+              Don&apos;t have an account?{" "}
+              <a href="/register" className="text-blue-600 hover:underline">
+                Sign up
+              </a>
+            </FieldDescription>
+            <FieldDescription className="px-6 text-center">
+              <a
+                href="/forget-password"
+                className="text-blue-600 hover:underline"
+              >
+                Forgot password?
+              </a>
+            </FieldDescription>
+          </Field>
+        </FieldGroup>
+      </FieldGroup>
+    </form>
+  );
+};
+
+export default LoginForm;
+```
