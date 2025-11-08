@@ -799,3 +799,215 @@ const LoginForm = () => {
 
 export default LoginForm;
 ```
+
+## 66-8 Register Form Error Handling And Data Validations, 66-9 Fixing The Issues In Register Patient Zod Schema
+
+- 
+
+- src -> services -> auth -> registerPatient.ts 
+
+```tsx
+/* eslint-disable @typescript-eslint/no-explicit-any */
+"use server"
+
+import z from "zod";
+
+const registerValidationZodSchema = z.object({
+    name: z.string().min(1, { message: "Name is required" }),
+    address: z.string().optional(),
+    email: z.email({ message: "Valid email is required" }),
+    password: z.string().min(6, {
+        error: "Password is required and must be at least 6 characters long",
+    }).max(100, {
+        error: "Password must be at most 100 characters long",
+    }),
+    confirmPassword: z.string().min(6, {
+        error: "Confirm Password is required and must be at least 6 characters long",
+    }),
+}).refine((data: any) => data.password === data.confirmPassword, {
+    error: "Passwords do not match",
+    path: ["confirmPassword"],
+});
+
+
+export const registerPatient = async (_currentState: any, formData: any): Promise<any> => {
+    try {
+        console.log(formData.get("address"));
+        const validationData = {
+            name: formData.get('name'),
+            address: formData.get('address'),
+            email: formData.get('email'),
+            password: formData.get('password'),
+            confirmPassword: formData.get('confirmPassword'),
+        }
+
+        const validatedFields = registerValidationZodSchema.safeParse(validationData);
+
+        console.log(validatedFields, "val");
+
+        if (!validatedFields.success) {
+            return {
+                success: false,
+                errors: validatedFields.error.issues.map(issue => {
+                    return {
+                        field: issue.path[0],
+                        message: issue.message,
+                    }
+                }
+                )
+            }
+        }
+
+        const registerData = {
+            password: formData.get('password'),
+            patient: {
+                name: formData.get('name'),
+                address: formData.get('address'),
+                email: formData.get('email'),
+            }
+        }
+
+        const newFormData = new FormData();
+
+        newFormData.append("data", JSON.stringify(registerData));
+
+        const res = await fetch("http://localhost:5000/api/v1/user/create-patient", {
+            method: "POST",
+            body: newFormData,
+        }).then(res => res.json());
+
+        console.log(res, "res");
+
+        return res;
+
+
+
+    } catch (error) {
+        console.log(error);
+        return { error: "Registration failed" };
+    }
+}
+```
+
+- components -> register-form.tsx
+
+```tsx 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+"use client";
+
+import { registerPatient } from "@/services/auth/registerPatient";
+import { useActionState } from "react";
+import { Button } from "./ui/button";
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "./ui/field";
+import { Input } from "./ui/input";
+
+const RegisterForm = () => {
+  const [state, formAction, isPending] = useActionState(registerPatient, null);
+  console.log(state, "state");
+
+  const getFieldError = (fieldName: string) => {
+    if (state && state.errors) {
+      const error = state.errors.find((err: any) => err.field === fieldName);
+      if (error) {
+        return error.message;
+      } else {
+        return null;
+      }
+    } else {
+      return null;
+    }
+  };
+  return (
+    <form action={formAction}>
+      <FieldGroup>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Name */}
+          <Field>
+            <FieldLabel htmlFor="name">Full Name</FieldLabel>
+            <Input id="name" name="name" type="text" placeholder="John Doe" />
+            {getFieldError("name") && (
+              <FieldDescription className="text-red-600">
+                {getFieldError("name")}
+              </FieldDescription>
+            )}
+          </Field>
+          {/* Address */}
+          <Field>
+            <FieldLabel htmlFor="address">Address</FieldLabel>
+            <Input
+              id="address"
+              name="address"
+              type="text"
+              placeholder="123 Main St"
+            />
+
+            {getFieldError("address") && (
+              <FieldDescription className="text-red-600">
+                {getFieldError("address")}
+              </FieldDescription>
+            )}
+          </Field>
+          {/* Email */}
+          <Field>
+            <FieldLabel htmlFor="email">Email</FieldLabel>
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              placeholder="m@example.com"
+            />
+
+            {getFieldError("email") && (
+              <FieldDescription className="text-red-600">
+                {getFieldError("email")}
+              </FieldDescription>
+            )}
+          </Field>
+          {/* Password */}
+          <Field>
+            <FieldLabel htmlFor="password">Password</FieldLabel>
+            <Input id="password" name="password" type="password" />
+
+            {getFieldError("password") && (
+              <FieldDescription className="text-red-600">
+                {getFieldError("password")}
+              </FieldDescription>
+            )}
+          </Field>
+          {/* Confirm Password */}
+          <Field className="md:col-span-2">
+            <FieldLabel htmlFor="confirmPassword">Confirm Password</FieldLabel>
+            <Input
+              id="confirmPassword"
+              name="confirmPassword"
+              type="password"
+            />
+
+            {getFieldError("confirmPassword") && (
+              <FieldDescription className="text-red-600">
+                {getFieldError("confirmPassword")}
+              </FieldDescription>
+            )}
+          </Field>
+        </div>
+        <FieldGroup className="mt-4">
+          <Field>
+            <Button type="submit" disabled={isPending}>
+              {isPending ? "Creating Account..." : "Create Account"}
+            </Button>
+
+            <FieldDescription className="px-6 text-center">
+              Already have an account?{" "}
+              <a href="/login" className="text-blue-600 hover:underline">
+                Sign in
+              </a>
+            </FieldDescription>
+          </Field>
+        </FieldGroup>
+      </FieldGroup>
+    </form>
+  );
+};
+
+export default RegisterForm;
+```
