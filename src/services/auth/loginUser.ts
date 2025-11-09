@@ -3,6 +3,9 @@
 
 import z from "zod";
 
+import { parse } from "cookie"
+import { cookies } from "next/headers";
+
 const loginValidationZodSchema = z.object({
     email: z.email({
         message: "Email is required",
@@ -15,6 +18,8 @@ const loginValidationZodSchema = z.object({
 });
 
 export const loginUser = async (_currentState: any, formData: any): Promise<any> => {
+    let accessTokenObject: null | any = null;
+    let refreshTokenObject: null | any = null;
     try {
         const loginData = {
             email: formData.get('email'),
@@ -41,10 +46,65 @@ export const loginUser = async (_currentState: any, formData: any): Promise<any>
             headers: {
                 "Content-Type": "application/json",
             },
-        }).then(res => res.json());
+        })
+
+        const result = await res.json();
+
+        const setCookieHeaders = res.headers.getSetCookie();
+
+        if (setCookieHeaders && setCookieHeaders.length > 0) {
+            setCookieHeaders.forEach((cookie: string) => {
+                // console.log(cookie, "For each Cookie")
+                const parsedCookie = parse(cookie)
+                console.log(parsedCookie, "parsed cookie")
+
+                if (parsedCookie['accessToken']) {
+                    accessTokenObject = parsedCookie
+                }
+
+                if (parsedCookie['refreshToken']) {
+                    refreshTokenObject = parsedCookie
+                }
+            })
+        } else {
+            throw new Error("No Set-Cookie header found");
+        }
+
+        console.log({
+            accessTokenObject, refreshTokenObject
+        })
 
 
-        return res;
+        if (!accessTokenObject) {
+            throw new Error("Access Token not found in cookie")
+        }
+        if (!refreshTokenObject) {
+            throw new Error("Refresh Token not found in cookie")
+        }
+
+        const cookieStore = await cookies()
+
+        cookieStore.set("accessToken", accessTokenObject.accessToken, {
+            httpOnly : true,
+            maxAge : parseInt(accessTokenObject.MaxAge),
+            path : accessTokenObject.path ||"/",
+            secure : true
+
+        })
+        cookieStore.set("refreshToken", refreshTokenObject.refreshToken, {
+            httpOnly : true,
+            maxAge : parseInt(refreshTokenObject.MaxAge),
+            path : refreshTokenObject.path ||"/",
+            secure : true
+
+        })
+
+        console.log({
+            res,
+            result
+        })
+
+        return result;
 
     } catch (error) {
         console.log(error);
