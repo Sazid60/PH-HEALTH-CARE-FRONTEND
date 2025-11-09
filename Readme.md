@@ -320,3 +320,44 @@ export const config = {
 }
 ```
 
+## 67-3 Planning On Route Protection & Authorization
+
+#### types of routing 
+- `public routes` 
+  - `open public routes` : /, /about /contact /services , /doctors/doctorId
+  - `auth related public routes`: /login /register /forgot-password /reset-password
+- `protected routes` 
+  - `common protected routes` : /my-profile , /settings, /change-password, /my-profile/*
+  - `role based protected routes` : /dashboard/* (patient) , /admin/dashboard* (admin) , /doctor/dashboard* (doctor), /doctor/routine*, /assistant (doctor)
+
+#### the patter will be like 
+- exact path match 
+- Router Pattern Match (/doctor/*)
+
+
+- proxy.ts 
+
+```ts 
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
+ 
+// This function can be marked `async` if using `await` inside
+export function proxy(request: NextRequest) {
+  console.log("pathname", request.nextUrl.pathname)
+  return NextResponse.next()
+}
+ 
+// used negative matcher for this 
+export const config = {
+  matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - api (API routes)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico, sitemap.xml, robots.txt (metadata files)
+     */
+    '/((?!api|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|.well-known).*)',
+  ],
+}
+```
