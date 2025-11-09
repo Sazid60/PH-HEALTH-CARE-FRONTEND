@@ -3,77 +3,9 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import jwt, { JwtPayload } from 'jsonwebtoken';
 import { cookies } from 'next/headers';
+import { getDefaultDashboardRoute, getRouteOwner, isAuthRoute, UserRole } from './lib/auth-utils';
 
-type UserRole = "ADMIN" | "DOCTOR" | "PATIENT";
 
-// exact : ["/my-profile", "settings"]
-// patterns  : [/^\/dashboard/, /^\/patient/] // routes starting with /dashboard/* and /admin/*
-type RouteConfig = {
-  exact: string[],
-  patterns: RegExp[]
-}
-
-const authRoutes = ["/login", "/register", "/forgot-password", "/reset-password"];
-
-const commonProtectedRoutes: RouteConfig = {
-  exact: ["/my-profile", "/settings"],
-  patterns: [] // [password/change-password, /password/reset-password => /password/*]
-}
-
-const doctorProtectedRoutes: RouteConfig = {
-  patterns: [/^\/doctor/], //routes starting with /doctor/*
-  exact: [] // /assistants
-}
-
-const adminProtectedRoutes: RouteConfig = {
-  patterns: [/^\/admin/], // routes starting with /admin/*
-  exact: []
-}
-
-const patientProtectedRoutes: RouteConfig = {
-  patterns: [/^\/dashboard/], // routes starting with /dashboard/*
-  exact: []
-}
-
-const isAuthRoute = (pathname: string): boolean => {
-  return authRoutes.some((route: string) => {
-    // return route.startsWith(pathname)
-    return route === pathname
-  });
-}
-
-const isRouteMatches = (pathname: string, routes: RouteConfig): boolean => {
-  if (routes.exact.includes(pathname)) {
-    return true;
-  }
-  return routes.patterns.some((pattern: RegExp) => {
-    return pattern.test(pathname);
-  })
-  // if pathname === /dashboard/my-appointments => matches /^\/dashboard/ => return true
-}
-
-const getRouteOwner = (pathname: string): "ADMIN" | "DOCTOR" | "PATIENT" | "COMMON" | null => {
-  if (isRouteMatches(pathname, adminProtectedRoutes)) {
-    return "ADMIN";
-  }
-  if (isRouteMatches(pathname, doctorProtectedRoutes)) {
-    return "DOCTOR";
-  }
-  if (isRouteMatches(pathname, patientProtectedRoutes)) {
-    return "PATIENT";
-  }
-  if (isRouteMatches(pathname, commonProtectedRoutes)) {
-    return "COMMON";
-  }
-  return null;
-}
-
-const getDefaultDashboardRoute = (role: UserRole): string => {
-  if(role === "ADMIN") return "/admin/dashboard";
-  if(role === "DOCTOR") return "/doctor/dashboard";
-  if(role === "PATIENT") return "dashboard";
-  return "/"
-}
 
 // This function can be marked `async` if using `await` inside
 export async function proxy(request: NextRequest) {
@@ -86,19 +18,19 @@ export async function proxy(request: NextRequest) {
 
   let userRole: string | null = null;
 
-  if(accessToken){
+  if (accessToken) {
     const verifiedToken: JwtPayload | string = jwt.verify(accessToken, process.env.JWT_SECRET as string);
     console.log(verifiedToken)
 
-    if(typeof verifiedToken === "string"){
+    if (typeof verifiedToken === "string") {
       cookieStore.delete("accessToken");
       cookieStore.delete("refreshToken");
       return NextResponse.redirect(new URL('/login', request.url));
     }
-    userRole = verifiedToken.role 
+    userRole = verifiedToken.role
   }
 
-  const routeOwner = getRouteOwner(pathname); 
+  const routeOwner = getRouteOwner(pathname);
   // path = /doctor/appointment => DOCTOR
   // path = /my-profile => COMMON
   // path = /login => null
@@ -106,24 +38,37 @@ export async function proxy(request: NextRequest) {
   const isAuth = isAuthRoute(pathname); // true | false
 
   // rule-1  : user logged in and trying to access auth route => redirect to dashboard
-  if(accessToken && isAuth){
+  if (accessToken && isAuth) {
     return NextResponse.redirect(new URL(getDefaultDashboardRoute(userRole as UserRole), request.url));
   }
 
   //  rule-2 : user not logged in and trying to access open public route
-  if(routeOwner === null){
+  if (routeOwner === null) {
     return NextResponse.next()
   }
 
+  //  rule-1 and rule-2 for public route and auth routes 
+
+    if (!accessToken) {
+        const loginUrl = new URL("/login", request.url);
+        loginUrl.searchParams.set("redirect", pathname);
+        return NextResponse.redirect(loginUrl);
+    }
+
+
   // rule-3 : user and trying to access protected route
-  if(routeOwner === "COMMON"){
-    if(!accessToken){
-      return NextResponse.redirect(new URL('/login', request.url));
+  if (routeOwner === "COMMON") {
+    return NextResponse.next()
+  }
+
+  // rule-4 : user trying to access role based protected route
+
+  if (routeOwner === "ADMIN" || routeOwner === "DOCTOR" || routeOwner === "PATIENT") {
+    if (userRole !== routeOwner) {
+      return NextResponse.redirect(new URL(getDefaultDashboardRoute(userRole as UserRole), request.url));
     }
     return NextResponse.next()
   }
-
-
 
 
   return NextResponse.next()
