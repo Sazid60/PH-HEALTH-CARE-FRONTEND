@@ -1,10 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use server"
 
-import z from "zod";
-
-import { parse } from "cookie"
+import { getDefaultDashboardRoute, isValidRedirectForRole, UserRole } from "@/lib/auth-utils";
+import { parse } from "cookie";
+import jwt, { JwtPayload } from "jsonwebtoken";
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import z from "zod";
 
 const loginValidationZodSchema = z.object({
     email: z.email({
@@ -18,9 +20,10 @@ const loginValidationZodSchema = z.object({
 });
 
 export const loginUser = async (_currentState: any, formData: any): Promise<any> => {
-    let accessTokenObject: null | any = null;
-    let refreshTokenObject: null | any = null;
     try {
+        const redirectTo = formData.get('redirect') || null;
+        let accessTokenObject: null | any = null;
+        let refreshTokenObject: null | any = null;
         const loginData = {
             email: formData.get('email'),
             password: formData.get('password'),
@@ -46,69 +49,74 @@ export const loginUser = async (_currentState: any, formData: any): Promise<any>
             headers: {
                 "Content-Type": "application/json",
             },
-        })
-
-        const result = await res.json();
+        });
 
         const setCookieHeaders = res.headers.getSetCookie();
 
         if (setCookieHeaders && setCookieHeaders.length > 0) {
             setCookieHeaders.forEach((cookie: string) => {
-                // console.log(cookie, "For each Cookie")
-                const parsedCookie = parse(cookie)
-                console.log(parsedCookie, "parsed cookie")
+                const parsedCookie = parse(cookie);
 
                 if (parsedCookie['accessToken']) {
-                    accessTokenObject = parsedCookie
+                    accessTokenObject = parsedCookie;
                 }
-
                 if (parsedCookie['refreshToken']) {
-                    refreshTokenObject = parsedCookie
+                    refreshTokenObject = parsedCookie;
                 }
             })
         } else {
             throw new Error("No Set-Cookie header found");
         }
 
-        console.log({
-            accessTokenObject, refreshTokenObject
-        })
-
-
         if (!accessTokenObject) {
-            throw new Error("Access Token not found in cookie")
-        }
-        if (!refreshTokenObject) {
-            throw new Error("Refresh Token not found in cookie")
+            throw new Error("Tokens not found in cookies");
         }
 
-        const cookieStore = await cookies()
+        if (!refreshTokenObject) {
+            throw new Error("Tokens not found in cookies");
+        }
+
+        const cookieStore = await cookies();
 
         cookieStore.set("accessToken", accessTokenObject.accessToken, {
-            httpOnly : true,
-            maxAge : parseInt(accessTokenObject['Max-Age']) || 1000 * 60 * 60,
-            path : accessTokenObject.path ||"/",
-            secure : true,
-            sameSite : accessTokenObject['SameSite'] || "none"
+            secure: true,
+            httpOnly: true,
+            maxAge: parseInt(accessTokenObject['Max-Age']) || 1000 * 60 * 60,
+            path: accessTokenObject.Path || "/",
+            sameSite: accessTokenObject['SameSite'] || "none",
+        });
 
-        })
         cookieStore.set("refreshToken", refreshTokenObject.refreshToken, {
-            httpOnly : true,
-            maxAge : parseInt(refreshTokenObject['Max-Age']) || 1000 * 60 * 60 * 24 * 90,
-            path : refreshTokenObject.path ||"/",
-            secure : true,
-            sameSite : refreshTokenObject['SameSite'] || "none"
+            secure: true,
+            httpOnly: true,
+            maxAge: parseInt(refreshTokenObject['Max-Age']) || 1000 * 60 * 60 * 24 * 90,
+            path: refreshTokenObject.Path || "/",
+            sameSite: refreshTokenObject['SameSite'] || "none",
+        });
+        const verifiedToken: JwtPayload | string = jwt.verify(accessTokenObject.accessToken, process.env.JWT_SECRET as string);
 
-        })
+        if (typeof verifiedToken === "string") {
+            throw new Error("Invalid token");
 
-        console.log({
-            res,
-            result
-        })
+        }
 
-        return result;
+        const userRole: UserRole = verifiedToken.role;
 
-    } catch (error) {
+
+        if (redirectTo) {
+            const requestedPath = redirectTo.toString();
+            if (isValidRedirectForRole(requestedPath, userRole)) {
+                redirect(requestedPath);
+            } else {
+                redirect(getDefaultDashboardRoute(userRole));
+            }
+        }
+
+    } catch (error: any) {
+        // Re-throw NEXT_REDIRECT errors so Next.js can handle them this is because of when we use redirect in a try catch 
+        if (error?.digest?.startsWith('NEXT_REDIRECT')) {
+            throw error;
+        }
         console.log(error);
         return { error: "Login failed" };
     }
