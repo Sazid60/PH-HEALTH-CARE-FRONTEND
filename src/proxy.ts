@@ -1,5 +1,8 @@
+
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import jwt, { JwtPayload } from 'jsonwebtoken';
+import { cookies } from 'next/headers';
 
 type UserRole = "ADMIN" | "DOCTOR" | "PATIENT";
 
@@ -73,8 +76,56 @@ const getDefaultDashboardRoute = (role: UserRole): string => {
 }
 
 // This function can be marked `async` if using `await` inside
-export function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
+  const cookieStore = await cookies()
+
   console.log("pathname", request.nextUrl.pathname)
+  const pathname = request.nextUrl.pathname;
+
+  const accessToken = cookieStore.get("accessToken")?.value || null;
+
+  let userRole: string | null = null;
+
+  if(accessToken){
+    const verifiedToken: JwtPayload | string = jwt.verify(accessToken, process.env.JWT_SECRET as string);
+    console.log(verifiedToken)
+
+    if(typeof verifiedToken === "string"){
+      cookieStore.delete("accessToken");
+      cookieStore.delete("refreshToken");
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
+    userRole = verifiedToken.role 
+  }
+
+  const routeOwner = getRouteOwner(pathname); 
+  // path = /doctor/appointment => DOCTOR
+  // path = /my-profile => COMMON
+  // path = /login => null
+
+  const isAuth = isAuthRoute(pathname); // true | false
+
+  // rule-1  : user logged in and trying to access auth route => redirect to dashboard
+  if(accessToken && isAuth){
+    return NextResponse.redirect(new URL(getDefaultDashboardRoute(userRole as UserRole), request.url));
+  }
+
+  //  rule-2 : user not logged in and trying to access open public route
+  if(routeOwner === null){
+    return NextResponse.next()
+  }
+
+  // rule-3 : user and trying to access protected route
+  if(routeOwner === "COMMON"){
+    if(!accessToken){
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
+    return NextResponse.next()
+  }
+
+
+
+
   return NextResponse.next()
 }
 
