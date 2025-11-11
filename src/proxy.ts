@@ -2,19 +2,24 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import jwt, { JwtPayload } from 'jsonwebtoken';
-import { cookies } from 'next/headers';
+// import { cookies } from 'next/headers';
 import { getDefaultDashboardRoute, getRouteOwner, isAuthRoute, UserRole } from './lib/auth-utils';
+import { deleteCookie, getCookie } from './services/auth/tokenHandler';
+
 
 
 
 // This function can be marked `async` if using `await` inside
 export async function proxy(request: NextRequest) {
-  const cookieStore = await cookies()
+  // const cookieStore = await cookies()
 
   console.log("pathname", request.nextUrl.pathname)
   const pathname = request.nextUrl.pathname;
 
-  const accessToken = cookieStore.get("accessToken")?.value || null;
+  // const accessToken = request.cookies.get("accessToken")?.value || null;
+
+  const accessToken= await getCookie("accessToken") || null;
+
 
   let userRole: string | null = null;
 
@@ -23,8 +28,11 @@ export async function proxy(request: NextRequest) {
     console.log(verifiedToken)
 
     if (typeof verifiedToken === "string") {
-      cookieStore.delete("accessToken");
-      cookieStore.delete("refreshToken");
+      // cookieStore.delete("accessToken");
+      // cookieStore.delete("refreshToken");
+      await deleteCookie("accessToken");
+      await deleteCookie("refreshToken");
+
       return NextResponse.redirect(new URL('/login', request.url));
     }
     userRole = verifiedToken.role
