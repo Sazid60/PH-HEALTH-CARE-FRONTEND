@@ -4,7 +4,8 @@ import type { NextRequest } from 'next/server'
 import jwt, { JwtPayload } from 'jsonwebtoken';
 // import { cookies } from 'next/headers';
 import { getDefaultDashboardRoute, getRouteOwner, isAuthRoute, UserRole } from './lib/auth-utils';
-import { deleteCookie } from './services/auth/tokenHandler';
+import { deleteCookie, getCookie } from './services/auth/tokenHandler';
+
 
 
 
@@ -15,7 +16,10 @@ export async function proxy(request: NextRequest) {
   console.log("pathname", request.nextUrl.pathname)
   const pathname = request.nextUrl.pathname;
 
-  const accessToken = request.cookies.get("accessToken")?.value || null;
+  // const accessToken = request.cookies.get("accessToken")?.value || null;
+
+  const accessToken= await getCookie("accessToken") || null;
+
 
   let userRole: string | null = null;
 
