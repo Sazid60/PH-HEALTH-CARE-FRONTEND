@@ -87,6 +87,7 @@ export const registerPatient = async (_currentState: any, formData: any): Promis
         if (error?.digest?.startsWith('NEXT_REDIRECT')) {
             throw error;
         }
-        return { error: "Registration failed" };
+        console.log(error);
+        return { success: false, message: `${process.env.NODE_ENV === 'development' ? error.message : "Registration Failed! Check Your Info"}` };
     }
 }
