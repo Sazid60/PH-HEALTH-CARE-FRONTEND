@@ -1215,3 +1215,198 @@ const CommonDashboardLayout = async ({ children }: { children: React.ReactNode }
 
 export default CommonDashboardLayout;
 ```
+
+## 68-7 Making DashboardNavbar Component
+
+- type -> user.interface.ts
+
+```ts 
+import { UserRole } from "@/lib/auth-utils";
+
+export interface UserInfo {
+    name: string;
+    email: string;
+    role: UserRole;
+}                                           
+```
+
+- servicer -> auth -> getUserInfo.ts 
+
+```ts 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+"use server"
+
+import { UserInfo } from "@/types/user.interface";
+import jwt, { JwtPayload } from "jsonwebtoken";
+import { getCookie } from "./tokenHandler";
+
+
+export const getUserInfo = async (): Promise<UserInfo | null> => {
+
+    try {
+        const accessToken = await getCookie("accessToken");
+
+        if (!accessToken) {
+            return null;
+        }
+
+        const verifiedToken = jwt.verify(accessToken, process.env.JWT_SECRET as string) as JwtPayload;
+
+        if (!verifiedToken) {
+            return null;
+        }
+
+        const userInfo: UserInfo = {
+            name: verifiedToken.name || "Unknown User",
+            email: verifiedToken.email,
+            role: verifiedToken.role,
+        };
+
+        return userInfo;
+    } catch (error: any) {
+        console.log(error);
+        return null;
+    }
+
+}
+```
+
+- components -> modules -> Dashboard -> DashboardNavbarContent.tsx
+
+```tsx
+"use client"
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { UserInfo } from "@/types/user.interface";
+import { Bell, Search } from "lucide-react";
+import UserDropdown from "./UserDropDown";
+
+interface DashboardNavbarContentProps {
+    userInfo: UserInfo 
+}
+
+
+const DashboardNavbarContent = ({ userInfo }: DashboardNavbarContentProps) => {
+    return (
+        <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur">
+            <div className="flex h-16 items-center justify-between gap-4 px-4 md:px-6">
+                {/* search bar */}
+                <div className="flex-1">
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input type="search" placeholder="Search...." className="pl-9" />
+                    </div>
+                </div>
+
+                {/* Right Side Actions */}
+                <div className="flex items-center gap-2">
+                    {/* Notifications */}
+                    <Button variant="outline" size="icon" className="relative">
+                        <Bell className="h-5 w-5" />
+                        <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-red-500" />
+                    </Button>
+
+                    {/* User Dropdown */}
+                    <UserDropdown userInfo={userInfo} />
+                </div>
+            </div>
+        </header>
+    );
+};
+
+export default DashboardNavbarContent;
+```
+
+- components -> modules -> Dashboard -> DashboardNavbar.tsx
+
+```tsx
+
+import { getUserInfo } from "@/services/auth/getUserInfo";
+import { UserInfo } from "@/types/user.interface";
+import DashboardNavbarContent from "./DashboardNavbarContent";
+
+const DashboardNavbar = async () => {
+  const userInfo = (await getUserInfo()) as UserInfo;
+
+
+  return (
+    <DashboardNavbarContent
+      userInfo={userInfo}
+    />
+  );
+};
+
+export default DashboardNavbar;
+```
+
+- components -> modules -> Dashboard -> UserDropDown.tsx
+
+```tsx
+"use client";
+
+import LogoutButton from "@/components/shared/LogoutButton";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+import { UserInfo } from "@/types/user.interface";
+import { Settings, User } from "lucide-react";
+import Link from "next/link";
+
+interface UserDropdownProps {
+  userInfo: UserInfo;
+}
+
+const UserDropdown = ({ userInfo }: UserDropdownProps) => {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="icon" className="rounded-full">
+          <span className="text-sm font-semibold">
+            {userInfo.name.charAt(0).toUpperCase()}
+          </span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuLabel>
+          <div className="flex flex-col space-y-1">
+            <p className="text-sm font-medium">{userInfo.name}</p>
+            <p className="text-xs text-muted-foreground">{userInfo.email}</p>
+            <p className="text-xs text-primary capitalize">
+              {userInfo.role.toLowerCase()}
+            </p>
+          </div>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link href={"/my-profile"} className="cursor-pointer">
+            <User className="mr-2 h-4 w-4" />
+            Profile
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href={"/change-password"} className="cursor-pointer">
+            <Settings className="mr-2 h-4 w-4" />
+            Change Password
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          className="cursor-pointer text-red-600"
+        >
+          <LogoutButton />
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};
+
+export default UserDropdown;
+```
