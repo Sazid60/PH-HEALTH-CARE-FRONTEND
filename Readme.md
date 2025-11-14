@@ -1572,3 +1572,480 @@ const DashboardSidebarContent = ({
 export default DashboardSidebarContent;
 ```
 
+## 68-9 Making DashboardMobileSidebar Component, 68-10 Creating Dynamic Rolebased Navigation Items For Sidebar
+
+- install the sheet for mobile sidebar
+
+```
+npx shadcn@latest add sheet
+```
+
+- lib -> navItems.config.ts
+
+```ts
+import type { LucideIcon } from "lucide-react";
+import * as Icons from "lucide-react";
+
+
+export const getIconComponent = (iconName: string): LucideIcon => {
+
+    const IconComponent = Icons[iconName as keyof typeof Icons]
+
+    if (!IconComponent) {
+        return Icons.HelpCircle
+    }
+
+    return IconComponent as LucideIcon;
+}
+```
+
+- lib -> icon-mapper.ts 
+
+```ts 
+import type { LucideIcon } from "lucide-react";
+import * as Icons from "lucide-react";
+
+
+export const getIconComponent = (iconName: string): LucideIcon => {
+
+    const IconComponent = Icons[iconName as keyof typeof Icons]
+
+    if (!IconComponent) {
+        return Icons.HelpCircle
+    }
+
+    return IconComponent as LucideIcon;
+}
+```
+- components -> modules -> Dashboard -> DashboardNavbar.tsx
+
+```tsx 
+import { getDefaultDashboardRoute } from "@/lib/auth-utils";
+import { getUserInfo } from "@/services/auth/getUserInfo";
+import { UserInfo } from "@/types/user.interface";
+import DashboardNavbarContent from "./DashboardNavbarContent";
+import { getNavItemsByRole } from "@/lib/navItems.config";
+
+const DashboardNavbar = async () => {
+  const userInfo = (await getUserInfo()) as UserInfo;
+  const navItems = getNavItemsByRole(userInfo.role);
+  const dashboardHome = getDefaultDashboardRoute(userInfo.role);
+
+  return (
+    <DashboardNavbarContent
+      userInfo={userInfo}
+      navItems={navItems}
+      dashboardHome={dashboardHome}
+    />
+  );
+};
+
+export default DashboardNavbar;
+```
+- components -> modules -> Dashboard -> DashboardNavbarContent.tsx
+
+```tsx
+"use client";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { NavSection } from "@/types/dashboard.interface";
+import { UserInfo } from "@/types/user.interface";
+import { Bell, Menu, Search } from "lucide-react";
+import { useEffect, useState } from "react";
+import DashboardMobileSidebar from "./DashboardMobileSidebar";
+import UserDropdown from "./UserDropDown";
+
+
+interface DashboardNavbarContentProps {
+  userInfo: UserInfo;
+  navItems?: NavSection[];
+  dashboardHome?: string;
+}
+const DashboardNavbarContent = ({
+  userInfo,
+  navItems,
+  dashboardHome,
+}: DashboardNavbarContentProps) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkSmallerScreen = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    checkSmallerScreen();
+    window.addEventListener("resize", checkSmallerScreen);
+
+    return () => {
+      window.removeEventListener("resize", checkSmallerScreen);
+    };
+  }, []);
+  return (
+    <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur">
+      <div className="flex h-16 items-center justify-between gap-4 px-4 md:px-6">
+        {/* Mobile Menu Toggle */}
+        <Sheet open={isMobile && isOpen} onOpenChange={setIsOpen}>
+          <SheetTrigger asChild className="md:hidden">
+            <Button variant="outline" size="icon">
+              <Menu className="h-5 w-5" />
+            </Button>
+          </SheetTrigger>
+          {/* Hide the overlay on medium and larger screens */}
+          <SheetContent side="left" className="w-64 p-0">
+            <DashboardMobileSidebar
+              userInfo={userInfo}
+              navItems={navItems || []}
+              dashboardHome={dashboardHome || ""}
+            />
+          </SheetContent>
+        </Sheet>
+
+        {/* Search Bar */}
+        <div className="flex-1">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input type="search" placeholder="Search..." className="pl-9" />
+          </div>
+        </div>
+
+        {/* Right Side Actions */}
+        <div className="flex items-center gap-2">
+          {/* Notifications */}
+          <Button variant="outline" size="icon" className="relative">
+            <Bell className="h-5 w-5" />
+            <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-red-500" />
+          </Button>
+
+          {/* User Dropdown */}
+          <UserDropdown userInfo={userInfo} />
+        </div>
+      </div>
+    </header>
+  );
+};
+
+export default DashboardNavbarContent;
+```
+
+- components -> modules -> Dashboard -> DashboardMobileSidebar.tsx
+
+```tsx
+
+"use client";
+
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import { SheetTitle } from "@/components/ui/sheet";
+import { getIconComponent } from "@/lib/icon-mapper";
+
+import { cn } from "@/lib/utils";
+import { NavSection } from "@/types/dashboard.interface";
+import { UserInfo } from "@/types/user.interface";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+
+interface DashboardMobileSidebarContentProps {
+  userInfo: UserInfo;
+  navItems: NavSection[];
+  dashboardHome: string;
+}
+
+const DashboardMobileSidebar = ({
+  userInfo,
+  navItems,
+  dashboardHome,
+}: DashboardMobileSidebarContentProps) => {
+  const pathname = usePathname();
+  return (
+    <div className=" flex h-full flex-col">
+      {/* Logo */}
+      <div className="flex h-16 items-center border-b px-6">
+        <Link href={dashboardHome}>
+          <span className="text-xl font-bold text-primary">PH Healthcare</span>
+        </Link>
+      </div>
+      <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
+
+      {/* Navigation */}
+      <ScrollArea className="flex-1 px-3 py-4">
+        <nav className="space-y-6">
+          {navItems.map((section, sectionIdx) => (
+            <div key={sectionIdx}>
+              {section.title && (
+                <h4 className="mb-2 px-3 text-xs font-semibold text-muted-foreground uppercase">
+                  {section.title}
+                </h4>
+              )}
+              <div className="space-y-1">
+                {section.items.map((item) => {
+                  const isActive = pathname === item.href;
+                  const Icon = getIconComponent(item.icon);
+
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={cn(
+                        "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all",
+                        isActive
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                      )}
+                    >
+                      <Icon className="h-4 w-4" />
+                      <span className="flex-1">{item.title}</span>
+                      {item.badge && (
+                        <Badge variant={isActive ? "secondary" : "default"}>
+                          {item.badge}
+                        </Badge>
+                      )}
+                    </Link>
+                  );
+                })}
+              </div>
+              {sectionIdx < navItems.length - 1 && (
+                <Separator className="my-4" />
+              )}
+            </div>
+          ))}
+        </nav>
+      </ScrollArea>
+
+      {/* User Info at Bottom */}
+      <div className="border-t p-4">
+        <div className="flex items-center gap-3">
+          <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+            <span className="text-sm font-semibold text-primary">
+              {userInfo.name.charAt(0).toUpperCase()}
+            </span>
+          </div>
+          <div className="flex-1 overflow-hidden">
+            <p className="text-sm font-medium truncate">{userInfo.name}</p>
+            <p className="text-xs text-muted-foreground capitalize">
+              {userInfo.role.toLowerCase()}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default DashboardMobileSidebar;
+```
+
+- components -> modules -> Dashboard -> DashboardSidebar.tsx
+
+```tsx
+import { getDefaultDashboardRoute } from "@/lib/auth-utils";
+
+import { getUserInfo } from "@/services/auth/getUserInfo";
+import { NavSection } from "@/types/dashboard.interface";
+import { UserInfo } from "@/types/user.interface";
+import DashboardSidebarContent from "./DashboardSidebarContent";
+import { getNavItemsByRole } from "@/lib/navItems.config";
+
+const DashboardSidebar = async () => {
+  const userInfo = (await getUserInfo()) as UserInfo;
+
+  const navItems: NavSection[] = getNavItemsByRole(userInfo.role);
+  const dashboardHome = getDefaultDashboardRoute(userInfo.role);
+
+  return (
+    <DashboardSidebarContent
+      userInfo={userInfo}
+      navItems={navItems}
+      dashboardHome={dashboardHome}
+    />
+  );
+};
+
+export default DashboardSidebar;
+```
+
+- components -> modules -> Dashboard -> DashboardSidebarContent.tsx
+
+```tsx
+"use client";
+
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { getIconComponent } from "@/lib/icon-mapper";
+
+import { cn } from "@/lib/utils";
+import { NavSection } from "@/types/dashboard.interface";
+import { UserInfo } from "@/types/user.interface";
+import { ScrollArea } from "@radix-ui/react-scroll-area";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+
+interface DashboardSidebarContentProps {
+  userInfo: UserInfo;
+  navItems: NavSection[];
+  dashboardHome: string;
+}
+
+const DashboardSidebarContent = ({
+  userInfo,
+  navItems,
+  dashboardHome,
+}: DashboardSidebarContentProps) => {
+  const pathname = usePathname();
+  return (
+    <div className="hidden md:flex h-full w-64 flex-col border-r bg-card">
+      {/* Logo/Brand */}
+      <div className="flex h-16 items-center border-b px-6">
+        <Link href={dashboardHome} className="flex items-center space-x-2">
+          <span className="text-xl font-bold text-primary">PH Healthcare</span>
+        </Link>
+      </div>
+
+      {/* Navigation */}
+      <ScrollArea className="flex-1 px-3 py-4">
+        <nav className="space-y-6">
+          {navItems.map((section, sectionIdx) => (
+            <div key={sectionIdx}>
+              {section.title && (
+                <h4 className="mb-2 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  {section.title}
+                </h4>
+              )}
+              <div className="space-y-1">
+                {section.items.map((item) => {
+                  const isActive = pathname === item.href;
+                  const Icon = getIconComponent(item.icon);
+
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={cn(
+                        "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all",
+                        isActive
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                      )}
+                    >
+                      <Icon className="h-4 w-4" />
+                      <span className="flex-1">{item.title}</span>
+                      {item.badge && (
+                        <Badge
+                          variant={isActive ? "secondary" : "default"}
+                          className="ml-auto"
+                        >
+                          {item.badge}
+                        </Badge>
+                      )}
+                    </Link>
+                  );
+                })}
+              </div>
+              {sectionIdx < navItems.length - 1 && (
+                <Separator className="my-4" />
+              )}
+            </div>
+          ))}
+        </nav>
+      </ScrollArea>
+
+      {/* User Info at Bottom */}
+      <div className="border-t p-4">
+        <div className="flex items-center gap-3">
+          <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+            <span className="text-sm font-semibold text-primary">
+              {userInfo.name.charAt(0).toUpperCase()}
+            </span>
+          </div>
+          <div className="flex-1 overflow-hidden">
+            <p className="text-sm font-medium truncate">{userInfo.name}</p>
+            <p className="text-xs text-muted-foreground capitalize">
+              {userInfo.role.toLowerCase()}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default DashboardSidebarContent;
+```
+
+- component -> modules -> Dashboard -> UserDropDown.tsx
+
+```tsx
+"use client";
+
+import LogoutButton from "@/components/shared/LogoutButton";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { logoutUser } from "@/services/auth/logoutUser";
+import { UserInfo } from "@/types/user.interface";
+import { Settings, User } from "lucide-react";
+import Link from "next/link";
+
+interface UserDropdownProps {
+  userInfo: UserInfo;
+}
+
+const UserDropdown = ({ userInfo }: UserDropdownProps) => {
+  const handleLogout = async () => {
+    await logoutUser();
+  };
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="icon" className="rounded-full">
+          <span className="text-sm font-semibold">
+            {userInfo.name.charAt(0).toUpperCase()}
+          </span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuLabel>
+          <div className="flex flex-col space-y-1">
+            <p className="text-sm font-medium">{userInfo.name}</p>
+            <p className="text-xs text-muted-foreground">{userInfo.email}</p>
+            <p className="text-xs text-primary capitalize">
+              {userInfo.role.toLowerCase()}
+            </p>
+          </div>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link href={"/my-profile"} className="cursor-pointer">
+            <User className="mr-2 h-4 w-4" />
+            Profile
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href={"/change-password"} className="cursor-pointer">
+            <Settings className="mr-2 h-4 w-4" />
+            Change Password
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onClick={handleLogout}
+          className="cursor-pointer text-red-600"
+        >
+          <LogoutButton />
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};
+
+export default UserDropdown;
+```
