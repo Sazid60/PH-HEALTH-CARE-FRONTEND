@@ -1,16 +1,3 @@
-## PH-HEALTHCARE-FRONTEND-PART-4
-
-GitHub Link: https://github.com/Apollo-Level2-Web-Dev/ph-health-care/tree/new-part-5
-
-## 69-1 Creating serverFetch Function For Reusable Fetch Function
-
-- we are using raw fetch method for data fetching because next.js extends and adds power of caching and many more features . if we use tanstack and axios and rtk we will miss those features. We are missing some features of axios if we use raw query, like we can not set ase url base url in one place and use it everywhere. so to solve this problem we will create a reusable fetch function called serverFetch. as well as we can not use interceptors. 
-
-- so we will create a reuseable function that will work as `axios`.
-
-- src -> lib -> serverFetch.ts
-
-```ts 
 import { getCookie } from "@/services/auth/tokenHandler";
 
 const BACKEND_API_URL = process.env.NEXT_PUBLIC_BASE_API_URL || 'http://localhost:5000/api/v1';
@@ -60,4 +47,3 @@ export const serverFetch = {
  * serverFetch.get("/auth/me")
  * serverFetch.post("/auth/login", { body: JSON.stringify({}) })
  */
-```
