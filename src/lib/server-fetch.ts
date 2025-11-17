@@ -43,7 +43,7 @@ export const serverFetch = {
 }
 
 /**
- * 
+ *                             
  * serverFetch.get("/auth/me")
  * serverFetch.post("/auth/login", { body: JSON.stringify({}) })
  */

@@ -1,4 +1,4 @@
-## PH-HEALTHCARE-FRONTEND-PART-4
+## PH-HEALTHCARE-FRONTEND-PART-5
 
 GitHub Link: https://github.com/Apollo-Level2-Web-Dev/ph-health-care/tree/new-part-5
 
@@ -315,3 +315,97 @@ function ManagementTable<T>({
 
 export default ManagementTable;
 ```
+## 69-4 Creating Reusable Management Page Header and Refresh Button Components
+
+- component -> ManagementPageHeader -> ManagementPageHeader.tsx
+
+```tsx
+"use client"
+import { LucideIcon, Plus } from "lucide-react";
+import React from "react";
+import { Button } from "../ui/button";
+
+interface ManagementHeaderProps {
+    title: string,
+    description?: string
+    children?: React.ReactNode // for modal opening button 
+
+    // purpose of this is to make the ui future proof if any other action is needed in future
+    action?: {
+        label: string,
+        icon?: LucideIcon,
+        onClick: () => void,
+    }
+}
+
+
+
+const ManagementPageHeader = ({ title, description, children, action }: ManagementHeaderProps) => {
+    const Icon = action?.icon || Plus;
+    return (
+        <div className="flex items-center justify-between">
+            <div>
+                <h1 className="text-3xl font-bold">{title}</h1>
+                {description && <p className="text-muted-foreground mt-1">{description}</p>}
+            </div>
+            {action && (
+                <Button onClick={action.onClick} >
+                    <Icon className="mr-2 h-4 w-4" />
+                    {action.label}
+                </Button>
+            )}
+
+            {children}
+
+        </div>
+    );
+};
+
+export default ManagementPageHeader;
+```
+- component -> RefreshButton -> RefreshButton.tsx
+
+```tsx
+"use client";
+import { RefreshCcw } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useTransition } from "react";
+import { Button } from "../ui/button";
+
+interface RefreshButtonProps {
+    size?: "sm" | "default" | "lg";
+    variant?: "default" | "outline" | "ghost";
+    showLabel?: boolean;
+}
+
+const RefreshButton = ({
+    size = "default",
+    variant = "default",
+    showLabel = true,
+}: RefreshButtonProps) => {
+    const router = useRouter();
+    const [isPending, startTransition] = useTransition(); // lets us re render a part of the of the ui not the full page/ full component. 
+
+
+    const handleRefresh = () => {
+        startTransition(() => {
+            router.refresh(); // because of using transition it will run in background without blocking the UI
+        });
+    };
+    return (
+        <Button
+            size={size}
+            variant={variant}
+            onClick={handleRefresh}
+            disabled={isPending}
+        >
+            <RefreshCcw className={`h-4 w-4 ${isPending ? "animate-spin" : ""} ${showLabel ? "mr-2" : ""}`}
+            />
+            {showLabel && "Refresh"}
+        </Button>
+    );
+};
+
+export default RefreshButton;
+```
+

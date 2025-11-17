@@ -1,9 +1,9 @@
 
-import { Hero } from "@/components/modules/home/Hero";
-import Specialities from "@/components/modules/home/Specialties";
-import Steps from "@/components/modules/home/Steps";
-import Testimonials from "@/components/modules/home/Testimonials";
-import TopRatedDoctors from "@/components/modules/home/TopRatedDoctors";
+import { Hero } from "@/components/modules/Home/Hero";
+import Specialities from "@/components/modules/Home/Specialties";
+import Steps from "@/components/modules/Home/Steps";
+import Testimonials from "@/components/modules/Home/Testimonials";
+import TopRatedDoctors from "@/components/modules/Home/TopRatedDoctors";
 import Head from "next/head";
 
 export default function Home() {
