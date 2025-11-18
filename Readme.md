@@ -1059,3 +1059,244 @@ export async function deleteSpeciality(id: string) {
     }
 }
 ```
+
+- used the same method in login and register as well.
+- zod validation schema are in `zod` folder
+
+## 69-11 Creating Helper Function And Component For Showing Form Input Field Errors
+
+- src -> lib -> getInputFieldErrorMessage.ts
+
+```ts
+export interface IInputErrorState {
+  success: boolean;
+  errors: {
+    field: string;
+    message: string;
+  }[];
+}
+
+export const getInputFieldError = (fieldName: string,state: IInputErrorState) => {
+  if (state && state.errors) {
+    const error = state.errors.find((err) => err.field === fieldName);
+    return error ? error.message : null;
+  } else {
+    return null;
+  }
+};
+```
+
+- src -> components -> shared -> InputFieldError.tsx
+
+```tsx
+
+import { getInputFieldError, IInputErrorState } from "@/lib/getInputFiledError";
+import { FieldDescription } from "../ui/field";
+
+interface InputFieldErrorProps {
+  field: string;
+  state: IInputErrorState;
+}
+
+const InputFieldError = ({ field, state }: InputFieldErrorProps) => {
+  if (getInputFieldError(field, state)) {
+    return (
+      <FieldDescription className="text-red-600">
+        {getInputFieldError(field, state)}
+      </FieldDescription>
+    );
+  }
+
+  return null;
+};
+
+export default InputFieldError;
+```
+
+- component -> login-form.tsx
+
+```tsx
+"use client";
+import { loginUser } from "@/services/auth/loginUser";
+import { useActionState, useEffect } from "react";
+import { toast } from "sonner";
+
+import { Button } from "./ui/button";
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "./ui/field";
+import { Input } from "./ui/input";
+import InputFieldError from "./shared/InputFieldError";
+
+const LoginForm = ({ redirect }: { redirect?: string }) => {
+  const [state, formAction, isPending] = useActionState(loginUser, null);
+
+  useEffect(() => {
+    if (state && !state.success && state.message) {
+      toast.error(state.message);
+    }
+  }, [state]);
+
+  return (
+    <form action={formAction}>
+      {redirect && <input type="hidden" name="redirect" value={redirect} />}
+      <FieldGroup>
+        <div className="grid grid-cols-1 gap-4">
+          {/* Email */}
+          <Field>
+            <FieldLabel htmlFor="email">Email</FieldLabel>
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              placeholder="m@example.com"
+            //   required
+            />
+
+            {/* {getInputFieldError("email", state) && (
+              <FieldDescription className="text-red-600">
+                {getInputFieldError("email", state)}
+              </FieldDescription>
+            )} */}
+
+
+            {/* replaced by component  */}
+
+            <InputFieldError field="email" state={state} />
+          </Field>
+
+          {/* Password */}
+          <Field>
+            <FieldLabel htmlFor="password">Password</FieldLabel>
+            <Input
+              id="password"
+              name="password"
+              type="password"
+              placeholder="Enter your password"
+            //   required
+            />
+            <InputFieldError field="password" state={state} />
+          </Field>
+        </div>
+        <FieldGroup className="mt-4">
+          <Field>
+            <Button type="submit" disabled={isPending}>
+              {isPending ? "Logging in..." : "Login"}
+            </Button>
+
+            <FieldDescription className="px-6 text-center">
+              Don&apos;t have an account?{" "}
+              <a href="/register" className="text-blue-600 hover:underline">
+                Sign up
+              </a>
+            </FieldDescription>
+            <FieldDescription className="px-6 text-center">
+              <a
+                href="/forget-password"
+                className="text-blue-600 hover:underline"
+              >
+                Forgot password?
+              </a>
+            </FieldDescription>
+          </Field>
+        </FieldGroup>
+      </FieldGroup>
+    </form>
+  );
+};
+
+export default LoginForm;
+```
+
+- component -> register-form.tsx
+
+```tsx
+"use client";
+
+import { registerPatient } from "@/services/auth/registerPatient";
+import { useActionState, useEffect } from "react";
+import { toast } from "sonner";
+
+import { Button } from "./ui/button";
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "./ui/field";
+import { Input } from "./ui/input";
+import InputFieldError from "./shared/InputFieldError";
+
+const RegisterForm = () => {
+  const [state, formAction, isPending] = useActionState(registerPatient, null);
+
+  useEffect(() => {
+    if (state && !state.success && state.message) {
+      toast.error(state.message);
+    }
+  }, [state]);
+  return (
+    <form action={formAction}>
+      <FieldGroup>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Name */}
+          <Field>
+            <FieldLabel htmlFor="name">Full Name</FieldLabel>
+            <Input id="name" name="name" type="text" placeholder="John Doe" />
+            <InputFieldError field="name" state={state} />
+          </Field>
+          {/* Address */}
+          <Field>
+            <FieldLabel htmlFor="address">Address</FieldLabel>
+            <Input
+              id="address"
+              name="address"
+              type="text"
+              placeholder="123 Main St"
+            />
+            <InputFieldError field="address" state={state} />
+          </Field>
+          {/* Email */}
+          <Field>
+            <FieldLabel htmlFor="email">Email</FieldLabel>
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              placeholder="m@example.com"
+            />
+            <InputFieldError field="email" state={state} />
+          </Field>
+          {/* Password */}
+          <Field>
+            <FieldLabel htmlFor="password">Password</FieldLabel>
+            <Input id="password" name="password" type="password" />
+
+            <InputFieldError field="password" state={state} />
+          </Field>
+          {/* Confirm Password */}
+          <Field className="md:col-span-2">
+            <FieldLabel htmlFor="confirmPassword">Confirm Password</FieldLabel>
+            <Input
+              id="confirmPassword"
+              name="confirmPassword"
+              type="password"
+            />
+
+            <InputFieldError field="confirmPassword" state={state} />
+          </Field>
+        </div>
+        <FieldGroup className="mt-4">
+          <Field>
+            <Button type="submit" disabled={isPending}>
+              {isPending ? "Creating Account..." : "Create Account"}
+            </Button>
+
+            <FieldDescription className="px-6 text-center">
+              Already have an account?{" "}
+              <a href="/login" className="text-blue-600 hover:underline">
+                Sign in
+              </a>
+            </FieldDescription>
+          </Field>
+        </FieldGroup>
+      </FieldGroup>
+    </form>
+  );
+};
+
+export default RegisterForm;
+```
