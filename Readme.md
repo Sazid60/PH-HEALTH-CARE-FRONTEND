@@ -857,3 +857,205 @@ const TablePagination = ({ currentPage, totalPages }: TablePaginationProps) => {
 
 export default TablePagination;
 ```
+
+## 69-9 Creating Server Actions For Specialities Management Page For Admin Role
+
+- services -> admin -> SpecialitiesManagement.ts
+
+```ts 
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+import { serverFetch } from "@/lib/server-fetch"
+import z from "zod"
+
+
+
+const createSpecialityZodSchema = z.object({
+    title: z.string().min(3, 'Title must be at least 3 characters long'),
+})
+
+export async function createSpeciality(_prevState: any, formData: FormData) {
+    try {
+        const payload = {
+            title: formData.get('title') as string,
+        }
+
+        const validatedPayload = createSpecialityZodSchema.safeParse(payload)
+
+
+        if (!validatedPayload.success) {
+            return {
+                success: false,
+                errors: validatedPayload.error.issues.map(issue => {
+                    return {
+                        field: issue.path[0],
+                        message: issue.message,
+                    }
+                })
+            }
+        }
+
+
+        const newFormData = new FormData()
+        newFormData.append('data', JSON.stringify(validatedPayload))
+
+        if (formData.get("file")) {
+            newFormData.append('file', formData.get("file") as Blob)
+        }
+        const response = await serverFetch.post("/specialties", {
+            body: newFormData,
+            // headers: {
+            //     "Authorization": `Bearer`
+            // } 
+            // we do not need to set the accessToken here because serverFetch Function is setting token before making request 
+        })
+
+        const result = await response.json()
+        return result
+
+    } catch (error: any) {
+        console.log(error)
+
+        return {
+            success: false,
+            message: `${process.env.NODE_ENV === 'development' ? error.message : "Something Went Wrong"}`
+        };
+
+    }
+}
+export async function getSpecialities() {
+    try {
+        const response = await serverFetch.get("/specialties")
+
+        const result = await response.json()
+        return result
+    } catch (error) {
+        console.log(error)
+        return {
+            success: false,
+            message: `${process.env.NODE_ENV === 'development' ? (error as Error).message : "Something Went Wrong"}`
+        };
+    }
+}
+export async function deleteSpeciality(id: string) {
+    try {
+        const response = await serverFetch.delete(`/specialties/${id}`)
+        const result = await response.json();
+        return result;
+    } catch (error: any) {
+        console.log(error);
+        return {
+            success: false,
+            message: `${process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'}`
+        };
+    }
+}
+
+```
+
+## 69-10 Creating Helper Function For Zod Validation Of Form Data
+
+- lib -> zodValidator.ts
+
+```ts
+import { ZodObject } from "zod"
+
+export const zodValidator = <T>(payload: T, schema: ZodObject) => {
+    const validatedPayload = schema.safeParse(payload)
+
+    if (!validatedPayload.success) {
+        return {
+            success: false,
+            errors: validatedPayload.error.issues.map(issue => {
+                return {
+                    field: issue.path[0],
+                    message: issue.message,
+                }
+            })
+        }
+    }
+
+    return {
+        success: true,
+        data: validatedPayload.data,
+    };
+}
+
+
+```
+
+- services -> admin -> SpecialitiesManagement.ts
+
+```ts 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+"use server"
+
+import { serverFetch } from "@/lib/server-fetch";
+import { zodValidator } from "@/lib/zodValidator";
+import { createSpecialityZodSchema } from "@/zod/specialities.validation";
+
+
+
+
+export async function createSpeciality(_prevState: any, formData: FormData) {
+    try {
+        const payload = {
+            title: formData.get("title") as string,
+        }
+        if (zodValidator(payload, createSpecialityZodSchema).success === false) {
+            return zodValidator(payload, createSpecialityZodSchema);
+        }
+
+        const validatedPayload = zodValidator(payload, createSpecialityZodSchema).data;
+
+        const newFormData = new FormData()
+        newFormData.append("data", JSON.stringify(validatedPayload))
+
+        if (formData.get("file")) {
+            newFormData.append("file", formData.get("file") as Blob)
+        }
+
+        const response = await serverFetch.post("/specialties", {
+            body: newFormData,
+        })
+
+        const result = await response.json();
+
+        return result;
+    } catch (error: any) {
+        console.log(error);
+        return { success: false, message: `${process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'}` }
+
+    }
+}
+
+export async function getSpecialities() {
+    try {
+        const response = await serverFetch.get("/specialties")
+        const result = await response.json();
+        return result;
+    } catch (error: any) {
+        console.log(error);
+        return {
+            success: false,
+            message: `${process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'}`
+        };
+    }
+}
+
+export async function deleteSpeciality(id: string) {
+    try {
+        const response = await serverFetch.delete(`/specialties/${id}`)
+        const result = await response.json();
+        return result;
+    } catch (error: any) {
+        console.log(error);
+        return {
+            success: false,
+            message: `${process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'}`
+        };
+    }
+}
+```
