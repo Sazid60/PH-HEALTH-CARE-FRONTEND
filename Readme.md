@@ -532,3 +532,184 @@ const SearchFilter = ({ placeholder = "Search....", paramName = "searchTerm" }: 
 
 export default SearchFilter;
 ```
+
+## 69-6 Creating Reusable Select Filter And Table Skeleton Loader Components
+
+- in filter/pagination there is no hassle of debounce because its not typing base rather its click base. so no need of debounce here.
+
+- component -> shared -> SelectFilter.tsx
+
+```tsx
+import { useRouter, useSearchParams } from "next/navigation";
+import { useTransition } from "react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+
+/**
+ * Props for `SelectFilter` component.
+ * - `paramName`: the query parameter name used in the URL (e.g. `?gender=`).
+ * - `placeholder`: optional placeholder text shown when no value is selected.
+ * - `options`: array of selectable options with `label` and `value`.
+ */
+interface SelectFilterProps {
+    paramName: string; // ?gender=
+    placeholder?: string;
+    options: { label: string; value: string }[];
+}
+
+/**
+ * SelectFilter
+ * - Reads the current value from the URL (`useSearchParams`) and renders a
+ *   controlled `Select` component populated from `options`.
+ * - When selection changes, the component updates the URL query string using
+ *   `router.push` inside `startTransition` so the navigation is treated as a
+ *   non-urgent update.
+ * - The special option value `"All"` is used to indicate "no filter": when
+ *   selected the corresponding query param is removed from the URL.
+ */
+const SelectFilter = ({
+    paramName,
+    placeholder,
+    options,
+}: SelectFilterProps) => {
+    const router = useRouter();
+    // Provides the current set of URL search params (read-only object-like API)
+    const searchParams = useSearchParams();
+
+    // useTransition returns [isPending, startTransition]. We use `isPending` to
+    // disable the select while a navigation update is in progress to prevent
+    // double-submission / rapid changes; `startTransition` is used to schedule
+    // the router push as a non-urgent update.
+    const [isPending, startTransition] = useTransition();
+
+    // Read current value for the given param from the URL. If the param is not
+    // present we use the sentinel value "All" to represent the unfiltered state.
+    const currentValue = searchParams.get(paramName) || "All";
+
+    /**
+     * handleChange
+     * - `value` comes from the Select component when the user picks an item.
+     * - If `value === "All"` we remove the query param to represent "no filter".
+     * - Otherwise we set/update the query param with the selected value.
+     * - Navigation is scheduled inside `startTransition` to avoid blocking the UI.
+     */
+    const handleChange = (value: string) => {
+        // Clone the current search params so we can modify them safely
+        const params = new URLSearchParams(searchParams.toString());
+
+        if (value === "All") {
+            // Remove the filter param entirely to show the unfiltered list/state
+            params.delete(paramName);
+        } else if (value) {
+            // Set or update the filter param (e.g. ?gender=male)
+            params.set(paramName, value);
+        } else {
+            // Fallback: if an empty string is provided, ensure the param is removed
+            params.delete(paramName);
+        }
+
+        // Use startTransition so React treats the route update as non-urgent.
+        // This helps keep the UI responsive during the navigation.
+        startTransition(() => {
+            router.push(`?${params.toString()}`);
+        });
+    };
+
+    return (
+        <Select
+            value={currentValue}
+            onValueChange={handleChange}
+            // Disable the select while a navigation is pending to avoid multiple
+            // rapid updates that could lead to unexpected states.
+            disabled={isPending}
+        >
+            <SelectTrigger>
+                {/*
+          `SelectValue` shows the currently selected item or the `placeholder`
+          when no value is selected. The `placeholder` prop should describe the
+          filter purpose (e.g. "Select gender").
+        */}
+                <SelectValue placeholder={placeholder} />
+            </SelectTrigger>
+            <SelectContent>
+                {/* Include an explicit "All" item to allow clearing the filter */}
+                <SelectItem value="All">All</SelectItem>
+                {options.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                    </SelectItem>
+                ))}
+            </SelectContent>
+        </Select>
+    );
+};
+
+export default SelectFilter;
+```
+
+- component -> shared -> TableSkeleton.tsx
+
+```tsx
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+
+interface TableSkeletonProps {
+  columns: number;
+  rows?: number;
+  showActions?: boolean;
+}
+
+export function TableSkeleton({
+  columns = 6,
+  rows = 10,
+  showActions = true,
+}: TableSkeletonProps) {
+  return (
+    <div className="rounded-lg border">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            {[...Array(columns)].map((_, i) => (
+              <TableHead key={i}>
+                <Skeleton className="h-4 w-full" />
+              </TableHead>
+            ))}
+            {showActions && (
+              <TableHead className="w-[70px]">
+                <Skeleton className="h-4 w-full" />
+              </TableHead>
+            )}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {[...Array(rows)].map((_, rowIndex) => (
+            <TableRow key={rowIndex}>
+              {[...Array(columns)].map((_, colIndex) => (
+                <TableCell key={colIndex}>
+                  <div className="flex items-center gap-2">
+                    {colIndex === 0 && (
+                      <Skeleton className="h-10 w-10 rounded-full" />
+                    )}
+                    <Skeleton className="h-4 w-full" />
+                  </div>
+                </TableCell>
+              ))}
+              {showActions && (
+                <TableCell>
+                  <Skeleton className="h-8 w-8 rounded-md" />
+                </TableCell>
+              )}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+```
