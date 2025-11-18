@@ -713,3 +713,9 @@ export function TableSkeleton({
   );
 }
 ```
+
+## 69-7 Analyzing The Table Pagination Component
+
+- lets think About table pagination 
+
+![alt text](image.png)
