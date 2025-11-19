@@ -11,7 +11,7 @@ const CommonDashboardLayout = async ({ children }: { children: React.ReactNode }
                 {/* <h1>Dashboard Navbar</h1> */}
                 <DashboardNavbar />
                 <main className="flex-1 overflow-y-auto bg-muted/10 p-4 md:p-6">
-                    <div className="max-w-7xl">{children}</div>
+                    <div className="">{children}</div>
                 </main>
 
             </div>
