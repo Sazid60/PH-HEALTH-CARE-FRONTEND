@@ -573,3 +573,154 @@ export async function deleteSpeciality(id: string) {
     }
 }
 ```
+
+## 70-3 Creating Table Columns And Specialities Table For Specialities Management Table
+
+- next.config.ts
+
+```ts 
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
+  /* config options here */
+  reactCompiler: true,
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: "res.cloudinary.com",
+      }
+    ]
+  }
+};
+
+export default nextConfig;
+```
+
+- src -> components -> modules -> Admin -> SpecialitiesManagement -> specialitiesColumns.tsx
+
+```tsx
+import { Column } from "@/components/shared/ManagementTable";
+import { ISpecialty } from "@/types/specialities.interface";
+import Image from "next/image";
+
+export const specialitiesColumns: Column<ISpecialty>[] = [
+    {
+        header: "Icon",
+        accessor : (speciality) =>(
+            <Image src={speciality.icon} alt={speciality.title} width={40} height={40} className="rounded-full" />
+        )
+    },
+    {
+        header :  "Title",
+        accessor : (speciality) => speciality.title
+    }
+]
+```
+
+- src -> components -> modules -> Admin -> SpecialitiesManagement -> specialitiesTable.tsx
+
+```tsx
+"use client";
+import DeleteConfirmationDialog from "@/components/shared/DeleteConfirmationDialog";
+import ManagementTable from "@/components/shared/ManagementTable";
+
+import { ISpecialty } from "@/types/specialities.interface";
+import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
+import { toast } from "sonner";
+import { specialitiesColumns } from "./specialitiesColumns";
+import { deleteSpeciality } from "@/services/admin/SpecialitiesManagement";
+
+interface SpecialityTableProps {
+  specialities: ISpecialty[];
+}
+
+const SpecialitiesTable = ({ specialities }: SpecialityTableProps) => {
+  const router = useRouter();
+  const [, startTransition] = useTransition();
+  const [deletingSpeciality, setDeletingSpeciality] =
+    useState<ISpecialty | null>(null);
+  const [isDeletingDialog, setIsDeletingDialog] = useState(false);
+
+  const handleRefresh = () => {
+    startTransition(() => {
+      router.refresh();
+    });
+  };
+
+  const handleDelete = (speciality: ISpecialty) => {
+    setDeletingSpeciality(speciality);
+  };
+
+  const confirmDelete = async () => {
+    if (!deletingSpeciality) return;
+
+    setIsDeletingDialog(true);
+    const result = await deleteSpeciality(deletingSpeciality.id);
+    setIsDeletingDialog(false);
+    if (result.success) {
+      toast.success(result.message || "Speciality deleted successfully");
+      setDeletingSpeciality(null);
+      handleRefresh();
+    } else {
+      toast.error(result.message || "Failed to delete speciality");
+    }
+  };
+
+  return (
+    <>
+      <ManagementTable
+        data={specialities}
+        columns={specialitiesColumns}
+        onDelete={handleDelete}
+        getRowKey={(speciality) => speciality.id}
+        emptyMessage="No specialities found"
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <DeleteConfirmationDialog
+        open={!!deletingSpeciality}
+        onOpenChange={(open) => !open && setDeletingSpeciality(null)}
+        onConfirm={confirmDelete}
+        title="Delete Speciality"
+        description={`Are you sure you want to delete ${deletingSpeciality?.title}? This action cannot be undone.`}
+        isDeleting={isDeletingDialog}
+      />
+    </>
+  );
+};
+
+export default SpecialitiesTable;
+```
+
+- src -> app -> (dashboardLayout) -> admin -> dashboard -> specialities-management -> page.tsx
+
+```tsx
+import SpecialitiesManagementHeader from "@/components/modules/Admin/SpecialitiesManagement/SpecialitiesManagementHeader";
+import SpecialitiesTable from "@/components/modules/Admin/SpecialitiesManagement/specialitiesTable";
+
+import RefreshButton from "@/components/shared/RefreshButton";
+import { TableSkeleton } from "@/components/shared/TableSkeleton";
+import { getSpecialities } from "@/services/admin/SpecialitiesManagement";
+
+import { Suspense } from "react";
+
+const AdminSpecialitiesManagementPage = async () => {
+  const result = await getSpecialities();
+  console.log(result)
+  return (
+    <div className="space-y-6">
+      <SpecialitiesManagementHeader />
+      <div className="flex">
+        <RefreshButton />
+      </div>
+      <Suspense fallback={<TableSkeleton columns={2} rows={10} />}>
+        <SpecialitiesTable specialities={result.data} />
+      </Suspense>
+    </div>
+  );
+};
+
+export default AdminSpecialitiesManagementPage;
+```
