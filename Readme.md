@@ -573,3 +573,354 @@ export async function deleteSpeciality(id: string) {
     }
 }
 ```
+
+## 70-3 Creating Table Columns And Specialities Table For Specialities Management Table
+
+- next.config.ts
+
+```ts 
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
+  /* config options here */
+  reactCompiler: true,
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: "res.cloudinary.com",
+      }
+    ]
+  }
+};
+
+export default nextConfig;
+```
+
+- src -> components -> modules -> Admin -> SpecialitiesManagement -> specialitiesColumns.tsx
+
+```tsx
+import { Column } from "@/components/shared/ManagementTable";
+import { ISpecialty } from "@/types/specialities.interface";
+import Image from "next/image";
+
+export const specialitiesColumns: Column<ISpecialty>[] = [
+    {
+        header: "Icon",
+        accessor : (speciality) =>(
+            <Image src={speciality.icon} alt={speciality.title} width={40} height={40} className="rounded-full" />
+        )
+    },
+    {
+        header :  "Title",
+        accessor : (speciality) => speciality.title
+    }
+]
+```
+
+- src -> components -> modules -> Admin -> SpecialitiesManagement -> specialitiesTable.tsx
+
+```tsx
+"use client";
+import DeleteConfirmationDialog from "@/components/shared/DeleteConfirmationDialog";
+import ManagementTable from "@/components/shared/ManagementTable";
+
+import { ISpecialty } from "@/types/specialities.interface";
+import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
+import { toast } from "sonner";
+import { specialitiesColumns } from "./specialitiesColumns";
+import { deleteSpeciality } from "@/services/admin/SpecialitiesManagement";
+
+interface SpecialityTableProps {
+  specialities: ISpecialty[];
+}
+
+const SpecialitiesTable = ({ specialities }: SpecialityTableProps) => {
+  const router = useRouter();
+  const [, startTransition] = useTransition();
+  const [deletingSpeciality, setDeletingSpeciality] =
+    useState<ISpecialty | null>(null);
+  const [isDeletingDialog, setIsDeletingDialog] = useState(false);
+
+  const handleRefresh = () => {
+    startTransition(() => {
+      router.refresh();
+    });
+  };
+
+  const handleDelete = (speciality: ISpecialty) => {
+    setDeletingSpeciality(speciality);
+  };
+
+  const confirmDelete = async () => {
+    if (!deletingSpeciality) return;
+
+    setIsDeletingDialog(true);
+    const result = await deleteSpeciality(deletingSpeciality.id);
+    setIsDeletingDialog(false);
+    if (result.success) {
+      toast.success(result.message || "Speciality deleted successfully");
+      setDeletingSpeciality(null);
+      handleRefresh();
+    } else {
+      toast.error(result.message || "Failed to delete speciality");
+    }
+  };
+
+  return (
+    <>
+      <ManagementTable
+        data={specialities}
+        columns={specialitiesColumns}
+        onDelete={handleDelete}
+        getRowKey={(speciality) => speciality.id}
+        emptyMessage="No specialities found"
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <DeleteConfirmationDialog
+        open={!!deletingSpeciality}
+        onOpenChange={(open) => !open && setDeletingSpeciality(null)}
+        onConfirm={confirmDelete}
+        title="Delete Speciality"
+        description={`Are you sure you want to delete ${deletingSpeciality?.title}? This action cannot be undone.`}
+        isDeleting={isDeletingDialog}
+      />
+    </>
+  );
+};
+
+export default SpecialitiesTable;
+```
+
+- src -> app -> (dashboardLayout) -> admin -> dashboard -> specialities-management -> page.tsx
+
+```tsx
+import SpecialitiesManagementHeader from "@/components/modules/Admin/SpecialitiesManagement/SpecialitiesManagementHeader";
+import SpecialitiesTable from "@/components/modules/Admin/SpecialitiesManagement/specialitiesTable";
+
+import RefreshButton from "@/components/shared/RefreshButton";
+import { TableSkeleton } from "@/components/shared/TableSkeleton";
+import { getSpecialities } from "@/services/admin/SpecialitiesManagement";
+
+import { Suspense } from "react";
+
+const AdminSpecialitiesManagementPage = async () => {
+  const result = await getSpecialities();
+  console.log(result)
+  return (
+    <div className="space-y-6">
+      <SpecialitiesManagementHeader />
+      <div className="flex">
+        <RefreshButton />
+      </div>
+      <Suspense fallback={<TableSkeleton columns={2} rows={10} />}>
+        <SpecialitiesTable specialities={result.data} />
+      </Suspense>
+    </div>
+  );
+};
+
+export default AdminSpecialitiesManagementPage;
+```
+
+## 70-4 Creating Server Actions For Doctors Management Table
+
+- zod -> doctor.validation.ts
+
+```ts
+import z from "zod";
+
+export const createDoctorZodSchema = z.object({
+    password: z.string().min(6, "Password must be at least 6 characters long"),
+    name: z.string().min(3, "Name must be at least 3 characters long"),
+    email: z.email("Invalid email address"),
+    contactNumber: z.string().min(10, "Contact Number must be at least 10 characters long"),
+    address: z.string().optional(),
+    registrationNumber: z.string().min(3, "Registration Number must be at least 3 characters long"),
+    experience: z.number().min(0, "Experience cannot be negative").optional(),
+    gender: z.enum(["MALE", "FEMALE"], "Gender must be either 'MALE' or 'FEMALE'"),
+    appointmentFee: z.number().min(0, "Appointment Fee cannot be negative"),
+    qualification: z.string().min(3, "Qualification must be at least 3 characters long"),
+    currentWorkingPlace: z.string().min(3, "Current Working Place must be at least 3 characters long"),
+    designation: z.string().min(2, "Designation must be at least 2 characters long"),
+});
+
+export const updateDoctorZodSchema = z.object({
+    name: z.string().optional(),
+    profilePhoto: z.string().optional(),
+    contactNumber: z.string().optional(),
+    registrationNumber: z.string().optional(),
+    experience: z.number().optional(),
+    gender: z.string().optional(),
+    apointmentFee: z.number().optional(),
+    qualification: z.string().optional(),
+    currentWorkingPlace: z.string().optional(),
+    designation: z.string().optional(),
+});
+```
+
+- services -> admin -> DoctorsManagement.ts
+
+```ts
+/* eslint-disable @typescript-eslint/no-explicit-any */
+"use server"
+
+import { serverFetch } from "@/lib/server-fetch";
+import { zodValidator } from "@/lib/zodValidator";
+import { IDoctor } from "@/types/doctor.interface";
+import { createDoctorZodSchema, updateDoctorZodSchema } from "@/zod/doctor.validation";
+
+
+export async function createDoctor(_prevState: any, formData: FormData) {
+    try {
+        const payload: IDoctor = {
+            name: formData.get("name") as string,
+            email: formData.get("email") as string,
+            contactNumber: formData.get("contactNumber") as string,
+            address: formData.get("address") as string,
+            registrationNumber: formData.get("registrationNumber") as string,
+            experience: Number(formData.get("experience") as string),
+            gender: formData.get("gender") as "MALE" | "FEMALE",
+            appointmentFee: Number(formData.get("appointmentFee") as string),
+            qualification: formData.get("qualification") as string,
+            currentWorkingPlace: formData.get("currentWorkingPlace") as string,
+            designation: formData.get("designation") as string,
+            password: formData.get("password") as string,
+        }
+        if (zodValidator(payload, createDoctorZodSchema).success === false) {
+            return zodValidator(payload, createDoctorZodSchema);
+        }
+
+        const validatedPayload = zodValidator(payload, createDoctorZodSchema).data;
+
+        if (!validatedPayload) {
+            throw new Error("Invalid payload");
+        }
+
+        const newPayload = {
+            password: validatedPayload.password,
+            doctor: {
+                name: validatedPayload.name,
+                email: validatedPayload.email,
+                contactNumber: validatedPayload.contactNumber,
+                address: validatedPayload.address,
+                registrationNumber: validatedPayload.registrationNumber,
+                experience: validatedPayload.experience,
+                gender: validatedPayload.gender,
+                appointmentFee: validatedPayload.appointmentFee,
+                qualification: validatedPayload.qualification,
+                currentWorkingPlace: validatedPayload.currentWorkingPlace,
+                designation: validatedPayload.designation,
+            }
+        }
+        const newFormData = new FormData()
+        newFormData.append("data", JSON.stringify(newPayload))
+
+        if (formData.get("file")) {
+            newFormData.append("file", formData.get("file") as Blob)
+        }
+
+        const response = await serverFetch.post("/user/create-doctor", {
+            body: newFormData,
+        })
+
+        const result = await response.json();
+
+
+        return result;
+    } catch (error: any) {
+        console.log(error);
+        return { success: false, message: `${process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'}` }
+
+    }
+}
+
+export async function getDoctors(queryString?: string) {
+    try {
+        const response = await serverFetch.get(`/doctor${queryString ? `?${queryString}` : ""}`);
+        const result = await response.json();
+        return result;
+    } catch (error: any) {
+        console.log(error);
+        return {
+            success: false,
+            message: `${process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'}`
+        };
+    }
+}
+
+export async function getDoctorById(id: string) {
+    try {
+        const response = await serverFetch.get(`/doctor/${id}`)
+        const result = await response.json();
+        return result;
+    } catch (error: any) {
+        console.log(error);
+        return {
+            success: false,
+            message: `${process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'}`
+        };
+    }
+}
+
+export async function updateDoctor(id: string, _prevState: any, formData: FormData) {
+    try {
+        const payload: Partial<IDoctor> = {
+            name: formData.get("name") as string,
+            contactNumber: formData.get("contactNumber") as string,
+            address: formData.get("address") as string,
+            registrationNumber: formData.get("registrationNumber") as string,
+            experience: Number(formData.get("experience") as string),
+            gender: formData.get("gender") as "MALE" | "FEMALE",
+            appointmentFee: Number(formData.get("appointmentFee") as string),
+            qualification: formData.get("qualification") as string,
+            currentWorkingPlace: formData.get("currentWorkingPlace") as string,
+            designation: formData.get("designation") as string,
+        }
+        const validatedPayload = zodValidator(payload, updateDoctorZodSchema).data;
+
+        const response = await serverFetch.patch(`/doctor/${id}`, {
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(validatedPayload),
+        })
+        const result = await response.json();
+        return result;
+    } catch (error: any) {
+        console.log(error);
+        return { success: false, message: `${process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'}` }
+    }
+}
+
+export async function softDeleteDoctor(id: string) {
+    try {
+        const response = await serverFetch.delete(`/doctor/soft/${id}`)
+        const result = await response.json();
+
+        return result;
+    } catch (error: any) {
+        console.log(error);
+        return {
+            success: false,
+            message: `${process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'}`
+        };
+    }
+}
+export async function deleteDoctor(id: string) {
+    try {
+        const response = await serverFetch.delete(`/doctor/${id}`)
+        const result = await response.json();
+
+        return result;
+    } catch (error: any) {
+        console.log(error);
+        return {
+            success: false,
+            message: `${process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'}`
+        };
+    }
+}
+```
