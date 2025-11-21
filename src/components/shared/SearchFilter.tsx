@@ -78,7 +78,7 @@ const SearchFilter = ({ placeholder = "Search....", paramName = "searchTerm" }: 
                 placeholder={placeholder}
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
-                disabled
+                // disabled
                 className="pl-10"
             />
         </div>
