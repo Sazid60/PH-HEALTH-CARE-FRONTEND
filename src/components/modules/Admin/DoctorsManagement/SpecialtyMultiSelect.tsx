@@ -1,20 +1,3 @@
-## PH-HEALTHCARE-FRONTEND-PART-7
-
-Updated Backend: https://github.com/Apollo-Level2-Web-Dev/ph-health-care-server
-
-
-
-Frontend : https://github.com/Apollo-Level2-Web-Dev/ph-health-care/tree/new-part-7
-
-## 71-1 Analysis The New Backend Improvements And Changes
-
-- some backend mechanism Changed . see code in dev branch 
-
-## 71-2 Creating Multi Select Specialty Component For Doctor Form
-
-- components -> admin -> DoctorsManagement -> SpecialtyMultiSelect.tsx
-
-```tsx 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
@@ -155,5 +138,4 @@ const SpecialtyMultiSelect = ({
 };
 
 export default SpecialtyMultiSelect;
-```
-- we will create a hook for handling the states otherwise the form will be dirty. 
+
