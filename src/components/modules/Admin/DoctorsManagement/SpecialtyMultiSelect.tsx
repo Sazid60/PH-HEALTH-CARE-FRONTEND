@@ -138,4 +138,3 @@ const SpecialtyMultiSelect = ({
 };
 
 export default SpecialtyMultiSelect;
-
