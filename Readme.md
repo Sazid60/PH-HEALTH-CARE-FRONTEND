@@ -1827,3 +1827,459 @@ const DoctorsManagementHeader = ({
 export default DoctorsManagementHeader;
 ```
 
+## 71-10 Adding Limit, Sorting And Ordering In Doctors Table
+
+- components -> shared -> TablePagination.tsx
+
+```tsx
+"use client";
+
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useTransition } from "react";
+import { Button } from "../ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
+
+interface TablePaginationProps {
+  currentPage: number;
+  totalPages: number;
+}
+
+const TablePagination = ({ currentPage, totalPages }: TablePaginationProps) => {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const searchParams = useSearchParams();
+
+  const navigateToPage = (newPage: number) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", newPage.toString());
+
+    startTransition(() => {
+      router.push(`?${params.toString()}`);
+    });
+  };
+
+  const changeLimit = (newLimit: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("limit", newLimit);
+    params.set("page", "1"); // Reset to first page when changing limit
+
+    startTransition(() => {
+      router.push(`?${params.toString()}`);
+    });
+  };
+
+  const currentLimit = searchParams.get("limit") || "10";
+
+  // if (totalPages <= 1) {
+  //   return null;
+  // }
+
+  return (
+    <div className="flex items-center justify-center gap-2">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => navigateToPage(currentPage - 1)}
+        disabled={currentPage <= 1 || isPending}
+      >
+        <ChevronLeft className="h-4 w-4 mr-1" />
+        Previous
+      </Button>
+
+      <div className="flex items-center gap-1">
+        {Array.from({ length: Math.min(5, totalPages) }, (_, index) => {
+          let pageNumber;
+
+          if (totalPages <= 5) {
+            pageNumber = index + 1;
+          } else if (currentPage <= 3) {
+            pageNumber = index + 1;
+          } else if (currentPage >= totalPages - 2) {
+            pageNumber = totalPages - 4 + index;
+          } else {
+            pageNumber = currentPage - 2 + index;
+          }
+          return (
+            <Button
+              key={pageNumber}
+              variant={pageNumber === currentPage ? "default" : "outline"}
+              size="sm"
+              onClick={() => navigateToPage(pageNumber)}
+              disabled={isPending}
+              className="w-10"
+            >
+              {pageNumber}
+            </Button>
+          );
+        })}
+      </div>
+
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => navigateToPage(currentPage + 1)}
+        disabled={currentPage === totalPages || isPending}
+      >
+        Next
+        <ChevronRight className="h-4 w-4 ml-1" />
+      </Button>
+
+      <span className="text-sm text-muted-foreground ml-2">
+        {/* Page 9 of 20 */}
+        Page {currentPage} of {totalPages}
+      </span>
+
+      {/* Items per page selector */}
+      <div className="flex items-center gap-2">
+        <span className="text-sm text-muted-foreground">Items per page:</span>
+        <Select
+          value={currentLimit}
+          onValueChange={changeLimit}
+          disabled={isPending}
+        >
+          <SelectTrigger className="w-[70px] h-8">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="1">1</SelectItem>
+            <SelectItem value="5">5</SelectItem>
+            <SelectItem value="10">10</SelectItem>
+            <SelectItem value="20">20</SelectItem>
+            <SelectItem value="50">50</SelectItem>
+            <SelectItem value="100">100</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  );
+};
+
+export default TablePagination;
+```
+
+- sorting sort key added in DoctorsColumns.tsx
+
+```tsx 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+"use client";
+
+import { DateCell } from "@/components/shared/cell/DateCell";
+import { StatusBadgeCell } from "@/components/shared/cell/StatusBadgeCell";
+import { UserInfoCell } from "@/components/shared/cell/UserInfoCell";
+import { Column } from "@/components/shared/ManagementTable";
+import { IDoctor } from "@/types/doctor.interface";
+import { Star } from "lucide-react";
+
+export const doctorsColumns: Column<IDoctor>[] = [
+  {
+    header: "Doctor",
+    accessor: (doctor) => (
+      <UserInfoCell
+        name={doctor.name}
+        email={doctor.email}
+        photo={doctor.profilePhoto as string}
+      />
+    ),
+    sortKey: "name",
+  },
+  {
+    header: "Specialties",
+    accessor: (doctor) => {
+      // Handle both possible response structures
+      const specialties: any = doctor.doctorSpecialties;
+
+      if (!specialties || specialties.length === 0) {
+        return <span className="text-xs text-gray-500">No specialties</span>;
+      }
+
+      return (
+        <div className="flex flex-wrap gap-1">
+          {specialties.map((item: any, index: any) => {
+            // Handle nested specialty object
+            const specialtyTitle = item.specialities?.title || "N/A";
+            const specialtyId =
+              item.specialties?.id || item.specialitiesId || index;
+
+            return (
+              <span
+                key={specialtyId}
+                className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
+              >
+                {specialtyTitle}
+              </span>
+            );
+          })}
+        </div>
+      );
+    },
+  },
+  {
+    header: "Contact",
+    accessor: (doctor) => (
+      <div className="flex flex-col">
+        <span className="text-sm">{doctor.contactNumber}</span>
+      </div>
+    ),
+  },
+  {
+    header: "Experience",
+    accessor: (doctor) => (
+      <span className="text-sm font-medium">
+        {doctor.experience ?? 0} years
+      </span>
+    ),
+    sortKey: "experience",
+  },
+  {
+    header: "Fee",
+    accessor: (doctor) => (
+      <span className="text-sm font-semibold text-green-600">
+        ${doctor.appointmentFee}
+      </span>
+    ),
+    sortKey: "appointmentFee",
+  },
+  {
+    header: "Rating",
+    accessor: (doctor) => (
+      <div className="flex items-center gap-1">
+        <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+        <span className="text-sm font-medium">
+          {doctor.averageRating!.toFixed(1)}
+        </span>
+      </div>
+    ),
+    sortKey: "averageRating",
+  },
+  {
+    header: "Gender",
+    accessor: (doctor) => (
+      <span className="text-sm capitalize">{doctor.gender.toLowerCase()}</span>
+    ),
+  },
+  {
+    header: "Status",
+    accessor: (doctor) => <StatusBadgeCell isDeleted={doctor.isDeleted} />,
+  },
+  {
+    header: "Joined",
+    accessor: (doctor) => <DateCell date={doctor.createdAt} />,
+    sortKey: "createdAt",
+  },
+];
+```
+- Components -> ManagmentTable.tsx
+
+```tsx
+"use client";
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  Edit,
+  Eye,
+  Loader2,
+  MoreHorizontal,
+  Trash,
+} from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import React, { useTransition } from "react";
+import { Button } from "../ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../ui/dropdown-menu";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../ui/table";
+
+export interface Column<T> {
+  header: string;
+  accessor: keyof T | ((row: T) => React.ReactNode);
+  className?: string;
+  sortKey?: string;
+}
+
+interface ManagementTableProps<T> {
+  data: T[];
+  columns: Column<T>[];
+  onView?: (row: T) => void;
+  onEdit?: (row: T) => void;
+  onDelete?: (row: T) => void;
+  getRowKey: (row: T) => string;
+  emptyMessage?: string;
+  isRefreshing?: boolean;
+}
+
+// const ManagementTable<T> = (props: ManagementTableProps<T>) => {
+//   return <div>ManagementTable</div>;
+// };
+
+function ManagementTable<T>({
+  data = [],
+  columns = [],
+  onView,
+  onEdit,
+  onDelete,
+  getRowKey,
+  emptyMessage = "No records found.",
+  isRefreshing = false,
+}: ManagementTableProps<T>) {
+  const hasActions = onView || onEdit || onDelete;
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [, startTransition] = useTransition();
+
+  const currentSortBy = searchParams.get("sortBy") || "";
+  const currentSortOrder = searchParams.get("sortOrder") || "desc";
+
+  const handleSort = (sortKey: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+
+    // Toggle sort order if clicking the same column
+    if (currentSortBy === sortKey) {
+      const newOrder = currentSortOrder === "asc" ? "desc" : "asc";
+      params.set("sortOrder", newOrder);
+    } else {
+      // New column, default to descending
+      params.set("sortBy", sortKey);
+      params.set("sortOrder", "desc");
+    }
+
+    params.set("page", "1"); // Reset to first page
+
+    startTransition(() => {
+      router.push(`?${params.toString()}`);
+    });
+  };
+
+  const getSortIcon = (sortKey?: string) => {
+    if (!sortKey) return null;
+
+    if (currentSortBy !== sortKey) {
+      return <ArrowUpDown className="ml-2 h-4 w-4 text-muted-foreground" />;
+    }
+
+    return currentSortOrder === "asc" ? (
+      <ArrowUp className="ml-2 h-4 w-4" />
+    ) : (
+      <ArrowDown className="ml-2 h-4 w-4" />
+    );
+  };
+  return (
+    <>
+      <div className="rounded-lg border relative">
+        {/* Refreshing Overlay */}
+        {isRefreshing && (
+          <div className="absolute inset-0 bg-background/50 backdrop-blur-[2px] flex items-center justify-center z-10 rounded-lg">
+            <div className="flex flex-col items-center gap-2">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              <p className="text-sm text-muted-foreground">Refreshing...</p>
+            </div>
+          </div>
+        )}
+
+        <Table>
+          <TableHeader>
+            <TableRow>
+              {columns?.map((column, colIndex) => (
+                <TableHead key={colIndex} className={column.className}>
+                  {column.sortKey ? (
+                    <span
+                      onClick={() => handleSort(column.sortKey!)}
+                      className="flex items-center p-2 hover:text-foreground transition-colors font-medium cursor-pointer select-none"
+                    >
+                      {column.header}
+                      {getSortIcon(column.sortKey)}
+                    </span>
+                  ) : (
+                    column.header
+                  )}
+                </TableHead>
+              ))}
+              {hasActions && (
+                <TableHead className="w-[70px]">Actions</TableHead>
+              )}
+            </TableRow>
+          </TableHeader>
+
+          <TableBody>
+            {data.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={columns.length + (hasActions ? 1 : 0)}
+                  className="text-center py-8 text-muted-foreground"
+                >
+                  {emptyMessage}
+                </TableCell>
+              </TableRow>
+            ) : (
+              data?.map((item) => (
+                <TableRow key={getRowKey(item)}>
+                  {columns.map((col, idx) => (
+                    <TableCell key={idx} className={col.className}>
+                      {typeof col.accessor === "function"
+                        ? col.accessor(item)
+                        : String(item[col.accessor])}
+                    </TableCell>
+                  ))}
+                  {hasActions && (
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {onView && (
+                            <DropdownMenuItem onClick={() => onView(item)}>
+                              <Eye className="mr-2 h-4 w-4" />
+                              View
+                            </DropdownMenuItem>
+                          )}
+                          {onEdit && (
+                            <DropdownMenuItem onClick={() => onEdit(item)}>
+                              <Edit className="mr-2 h-4 w-4" />
+                              Edit
+                            </DropdownMenuItem>
+                          )}
+                          {onDelete && (
+                            <DropdownMenuItem
+                              onClick={() => onDelete(item)}
+                              className="text-destructive"
+                            >
+                              <Trash className="mr-2 h-4 w-4" />
+                              Delete
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  )}
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+    </>
+  );
+}
+
+export default ManagementTable;
+```
