@@ -2283,3 +2283,7 @@ function ManagementTable<T>({
 
 export default ManagementTable;
 ```
+
+## 71-11 Adding Loading And Skeleton Loading To Pages
+- skeleton, loading,, error, notfound pages and component added see codes. 
+
