@@ -681,3 +681,642 @@ export default MyProfilePage;
 
 ```
 
+## 72-3 Reset Password Pages For Admin and Doctor Role
+
+- (commonLayout) -> (auth) -> reset-password -> page.tsx
+
+```tsx
+import ResetPasswordForm from "@/components/ResetPasswordForm";
+
+const ResetPasswordPage = async ({
+  searchParams,
+}: {
+  searchParams?: Promise<{ redirect?: string }>;
+}) => {
+  const params = (await searchParams) || {};
+  const redirect = params.redirect;
+  return (
+    <div className="flex min-h-screen items-center justify-center">
+      <div className="w-full max-w-md space-y-6 rounded-lg border p-8 shadow-lg">
+        <div className="space-y-2 text-center">
+          <h1 className="text-3xl font-bold">Reset Your Password</h1>
+          <p className="text-muted-foreground">
+            Enter your new password below to reset your account password
+          </p>
+        </div>
+        <ResetPasswordForm redirect={redirect} />
+      </div>
+    </div>
+  );
+};
+
+export default ResetPasswordPage;
+
+```
+
+- components -> ResetPasswordForm.tsx
+
+```tsx
+/* eslint-disable @typescript-eslint/no-explicit-any */
+"use client";
+
+import InputFieldError from "@/components/shared/InputFieldError";
+import { Button } from "@/components/ui/button";
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { resetPassword } from "@/services/auth/auth.service";
+import { useActionState, useEffect } from "react";
+import { toast } from "sonner";
+
+const ResetPasswordForm = ({ redirect }: { redirect?: string }) => {
+  const [state, formAction, isPending] = useActionState(resetPassword, null);
+
+  useEffect(() => {
+    if (state && !state.success && state.message) {
+      toast.error(state.message);
+      console.log(state)
+    }
+  }, [state]);
+
+  return (
+    <form action={formAction}>
+      {redirect && <Input type="hidden" name="redirect" value={redirect} />}
+      <FieldGroup>
+        <div className="grid grid-cols-1 gap-4">
+          {/* New Password */}
+          <Field>
+            <FieldLabel htmlFor="newPassword">New Password</FieldLabel>
+            <Input
+              id="newPassword"
+              name="newPassword"
+              type="password"
+              placeholder="Enter new password"
+              autoComplete="new-password"
+            />
+            <InputFieldError field="newPassword" state={state as any} />
+          </Field>
+
+          {/* Confirm Password */}
+          <Field>
+            <FieldLabel htmlFor="confirmPassword">Confirm Password</FieldLabel>
+            <Input
+              id="confirmPassword"
+              name="confirmPassword"
+              type="password"
+              placeholder="Confirm new password"
+              autoComplete="new-password"
+            />
+            <InputFieldError field="confirmPassword" state={state as any} />
+          </Field>
+        </div>
+
+        <FieldGroup className="mt-4">
+          <Field>
+            <Button type="submit" disabled={isPending} className="w-full">
+              {isPending ? "Resetting..." : "Reset Password"}
+            </Button>
+
+            <FieldDescription className="px-6 text-center mt-4">
+              Remember your password?{" "}
+              <a href="/login" className="text-blue-600 hover:underline">
+                Back to Login
+              </a>
+            </FieldDescription>
+          </Field>
+        </FieldGroup>
+      </FieldGroup>
+    </form>
+  );
+};
+
+export default ResetPasswordForm;
+
+```
+
+- services -> auth -> auth.service.ts
+
+```ts
+"use server";
+import { getDefaultDashboardRoute, isValidRedirectForRole, UserRole } from "@/lib/auth-utils";
+import { verifyAccessToken } from "@/lib/jwtHanlders";
+import { serverFetch } from "@/lib/server-fetch";
+import { zodValidator } from "@/lib/zodValidator";
+import { resetPasswordSchema } from "@/zod/auth.validation";
+import { parse } from "cookie";
+import jwt from "jsonwebtoken";
+import { revalidateTag } from "next/cache";
+import { redirect } from "next/navigation";
+import { getUserInfo } from "./getUserInfo";
+import { deleteCookie, getCookie, setCookie } from "./tokenHandlers";
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+export async function updateMyProfile(formData: FormData) {
+    try {
+        // Create a new FormData with the data property
+        const uploadFormData = new FormData();
+
+        // Get all form fields except the file
+        const data: any = {};
+        formData.forEach((value, key) => {
+            if (key !== 'file' && value) {
+                data[key] = value;
+            }
+        });
+
+        // Add the data as JSON string
+        uploadFormData.append('data', JSON.stringify(data));
+
+        // Add the file if it exists
+        const file = formData.get('file');
+        if (file && file instanceof File && file.size > 0) {
+            uploadFormData.append('file', file);
+        }
+
+        const response = await serverFetch.patch(`/user/update-my-profile`, {
+            body: uploadFormData,
+        });
+
+        const result = await response.json();
+
+        revalidateTag("user-info", { expire: 0 });
+        return result;
+    } catch (error: any) {
+        console.log(error);
+        return {
+            success: false,
+            message: `${process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'}`
+        };
+    }
+}
+
+// Reset Password
+export async function resetPassword(_prevState: any, formData: FormData) {
+
+    const redirectTo = formData.get('redirect') || null;
+
+    // Build validation payload
+    const validationPayload = {
+        newPassword: formData.get("newPassword") as string,
+        confirmPassword: formData.get("confirmPassword") as string,
+    };
+
+    // Validate
+    const validatedPayload = zodValidator(validationPayload, resetPasswordSchema);
+
+    if (!validatedPayload.success && validatedPayload.errors) {
+        return {
+            success: false,
+            message: "Validation failed",
+            formData: validationPayload,
+            errors: validatedPayload.errors,
+        };
+    }
+
+    try {
+
+        const accessToken = await getCookie("accessToken");
+
+        if (!accessToken) {
+            throw new Error("User not authenticated");
+        }
+
+        const verifiedToken = jwt.verify(accessToken as string, process.env.JWT_SECRET!) as jwt.JwtPayload;
+        console.log(verifiedToken)
+
+        const userRole: UserRole = verifiedToken.role;
+
+        const user = await getUserInfo();
+        // API Call
+        const response = await serverFetch.post("/auth/reset-password", {
+            body: JSON.stringify({
+                id: user?.id,
+                password: validationPayload.newPassword,
+            }),
+            headers: {
+                "Authorization": accessToken,
+                "Content-Type": "application/json",
+            },
+        });
+
+        const result = await response.json();
+
+        if (!result.success) {
+            throw new Error(result.message || "Reset password failed");
+        }
+
+        if (result.success) {
+            // await get
+            revalidateTag("user-info", { expire: 0 });
+        }
+
+        if (redirectTo) {
+            const requestedPath = redirectTo.toString();
+            if (isValidRedirectForRole(requestedPath, userRole)) {
+                redirect(`${requestedPath}?loggedIn=true`);
+            } else {
+                redirect(`${getDefaultDashboardRoute(userRole)}?loggedIn=true`);
+            }
+        } else {
+            redirect(`${getDefaultDashboardRoute(userRole)}?loggedIn=true`);
+        }
+
+    } catch (error: any) {
+        // Re-throw NEXT_REDIRECT errors so Next.js can handle them
+        if (error?.digest?.startsWith("NEXT_REDIRECT")) {
+            throw error;
+        }
+        return {
+            success: false,
+            message: error?.message || "Something went wrong",
+            formData: validationPayload,
+        };
+    }
+}
+
+export async function getNewAccessToken() {
+    try {
+        const accessToken = await getCookie("accessToken");
+        const refreshToken = await getCookie("refreshToken");
+
+        //Case 1: Both tokens are missing - user is logged out
+        if (!accessToken && !refreshToken) {
+            return {
+                tokenRefreshed: false,
+            }
+        }
+
+        // Case 2 : Access Token exist- and need to verify
+        if (accessToken) {
+            const verifiedToken = await verifyAccessToken(accessToken);
+
+            if (verifiedToken.success) {
+                return {
+                    tokenRefreshed: false,
+                }
+            }
+        }
+
+        //Case 3 : refresh Token is missing- user is logged out
+        if (!refreshToken) {
+            return {
+                tokenRefreshed: false,
+            }
+        }
+
+        //Case 4: Access Token is invalid/expired- try to get a new one using refresh token
+        // This is the only case we need to call the API
+
+        // Now we know: accessToken is invalid/missing AND refreshToken exists
+        // Safe to call the API
+        let accessTokenObject: null | any = null;
+        let refreshTokenObject: null | any = null;
+
+        // API Call - serverFetch will skip getNewAccessToken for /auth/refresh-token endpoint
+        const response = await serverFetch.post("/auth/refresh-token", {
+            headers: {
+                Cookie: `refreshToken=${refreshToken}`,
+            },
+        });
+
+        const result = await response.json();
+
+        console.log("access token refreshed!!");
+
+        const setCookieHeaders = response.headers.getSetCookie();
+
+        if (setCookieHeaders && setCookieHeaders.length > 0) {
+            setCookieHeaders.forEach((cookie: string) => {
+                const parsedCookie = parse(cookie);
+
+                if (parsedCookie['accessToken']) {
+                    accessTokenObject = parsedCookie;
+                }
+                if (parsedCookie['refreshToken']) {
+                    refreshTokenObject = parsedCookie;
+                }
+            })
+        } else {
+            throw new Error("No Set-Cookie header found");
+        }
+
+        if (!accessTokenObject) {
+            throw new Error("Tokens not found in cookies");
+        }
+
+        if (!refreshTokenObject) {
+            throw new Error("Tokens not found in cookies");
+        }
+
+        await deleteCookie("accessToken");
+        await setCookie("accessToken", accessTokenObject.accessToken, {
+            secure: true,
+            httpOnly: true,
+            maxAge: parseInt(accessTokenObject['Max-Age']) || 1000 * 60 * 60,
+            path: accessTokenObject.Path || "/",
+            sameSite: accessTokenObject['SameSite'] || "none",
+        });
+
+        await deleteCookie("refreshToken");
+        await setCookie("refreshToken", refreshTokenObject.refreshToken, {
+            secure: true,
+            httpOnly: true,
+            maxAge: parseInt(refreshTokenObject['Max-Age']) || 1000 * 60 * 60 * 24 * 90,
+            path: refreshTokenObject.Path || "/",
+            sameSite: refreshTokenObject['SameSite'] || "none",
+        });
+
+        if (!result.success) {
+            throw new Error(result.message || "Token refresh failed");
+        }
+
+
+        return {
+            tokenRefreshed: true,
+            success: true,
+            message: "Token refreshed successfully"
+        };
+
+
+    } catch (error: any) {
+        return {
+            tokenRefreshed: false,
+            success: false,
+            message: error?.message || "Something went wrong",
+        };
+    }
+
+}
+```
+
+## 72-4 Adding Needs Password Change Block From Proxy File
+
+- while login check if password needed. If Password needed take to reset password change
+
+- services -> auth -> loginUser.ts 
+
+```ts 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+"use server"
+
+import { getDefaultDashboardRoute, isValidRedirectForRole, UserRole } from "@/lib/auth-utils";
+import { serverFetch } from "@/lib/server-fetch";
+import { zodValidator } from "@/lib/zodValidator";
+import { loginValidationZodSchema } from "@/zod/auth.validation";
+import { parse } from "cookie";
+import jwt, { JwtPayload } from "jsonwebtoken";
+import { redirect } from "next/navigation";
+import { setCookie } from "./tokenHandlers";
+
+
+
+export const loginUser = async (_currentState: any, formData: any): Promise<any> => {
+    try {
+        const redirectTo = formData.get('redirect') || null;
+        let accessTokenObject: null | any = null;
+        let refreshTokenObject: null | any = null;
+        const payload = {
+            email: formData.get('email'),
+            password: formData.get('password'),
+        }
+
+        if (zodValidator(payload, loginValidationZodSchema).success === false) {
+            return zodValidator(payload, loginValidationZodSchema);
+        }
+
+        const validatedPayload = zodValidator(payload, loginValidationZodSchema).data;
+
+        const res = await serverFetch.post("/auth/login", {
+            body: JSON.stringify(validatedPayload),
+            headers: {
+                "Content-Type": "application/json",
+            }
+        });
+
+        const result = await res.json();
+
+        const setCookieHeaders = res.headers.getSetCookie();
+
+        if (setCookieHeaders && setCookieHeaders.length > 0) {
+            setCookieHeaders.forEach((cookie: string) => {
+                const parsedCookie = parse(cookie);
+
+                if (parsedCookie['accessToken']) {
+                    accessTokenObject = parsedCookie;
+                }
+                if (parsedCookie['refreshToken']) {
+                    refreshTokenObject = parsedCookie;
+                }
+            })
+        } else {
+            throw new Error("No Set-Cookie header found");
+        }
+
+        if (!accessTokenObject) {
+            throw new Error("Tokens not found in cookies");
+        }
+
+        if (!refreshTokenObject) {
+            throw new Error("Tokens not found in cookies");
+        }
+
+
+        await setCookie("accessToken", accessTokenObject.accessToken, {
+            secure: true,
+            httpOnly: true,
+            maxAge: parseInt(accessTokenObject['Max-Age']) || 1000 * 60 * 60,
+            path: accessTokenObject.Path || "/",
+            sameSite: accessTokenObject['SameSite'] || "none",
+        });
+
+        await setCookie("refreshToken", refreshTokenObject.refreshToken, {
+            secure: true,
+            httpOnly: true,
+            maxAge: parseInt(refreshTokenObject['Max-Age']) || 1000 * 60 * 60 * 24 * 90,
+            path: refreshTokenObject.Path || "/",
+            sameSite: refreshTokenObject['SameSite'] || "none",
+        });
+        const verifiedToken: JwtPayload | string = jwt.verify(accessTokenObject.accessToken, process.env.JWT_SECRET as string);
+
+        if (typeof verifiedToken === "string") {
+            throw new Error("Invalid token");
+
+        }
+
+        const userRole: UserRole = verifiedToken.role;
+
+        if (!result.success) {
+            throw new Error(result.message || "Login failed");
+        }
+
+        if (redirectTo && result.data.needPasswordChange) {
+            const requestedPath = redirectTo.toString();
+            if (isValidRedirectForRole(requestedPath, userRole)) {
+                redirect(`/reset-password?redirect=${requestedPath}`);
+            } else {
+                redirect("/reset-password");
+            }
+        }
+
+        if (result.data.needPasswordChange) {
+            redirect("/reset-password");
+        }
+
+
+
+        if (redirectTo) {
+            const requestedPath = redirectTo.toString();
+            if (isValidRedirectForRole(requestedPath, userRole)) {
+                redirect(`${requestedPath}?loggedIn=true`);
+            } else {
+                redirect(`${getDefaultDashboardRoute(userRole)}?loggedIn=true`);
+            }
+        } else {
+            redirect(`${getDefaultDashboardRoute(userRole)}?loggedIn=true`);
+        }
+
+    } catch (error: any) {
+        // Re-throw NEXT_REDIRECT errors so Next.js can handle them
+        if (error?.digest?.startsWith('NEXT_REDIRECT')) {
+            throw error;
+        }
+        console.log(error);
+        return { success: false, message: `${process.env.NODE_ENV === 'development' ? error.message : "Login Failed. You might have entered incorrect email or password."}` };
+    }
+}
+```
+
+- lets make a functionality that prevents user from accessing reset password page after one time reset 
+- proxy.ts 
+
+```ts 
+import jwt, { JwtPayload } from 'jsonwebtoken';
+import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
+import { getDefaultDashboardRoute, getRouteOwner, isAuthRoute, UserRole } from './lib/auth-utils';
+import { getUserInfo } from './services/auth/getUserInfo';
+import { deleteCookie, getCookie } from './services/auth/tokenHandlers';
+import { getNewAccessToken } from './services/auth/auth.service';
+
+
+
+// This function can be marked `async` if using `await` inside
+export async function proxy(request: NextRequest) {
+    const pathname = request.nextUrl.pathname;
+    const hasTokenRefreshedParam = request.nextUrl.searchParams.has('tokenRefreshed');
+
+    // If coming back after token refresh, remove the param and continue
+    if (hasTokenRefreshedParam) {
+        const url = request.nextUrl.clone();
+        url.searchParams.delete('tokenRefreshed');
+        return NextResponse.redirect(url);
+    }
+
+    const tokenRefreshResult = await getNewAccessToken();
+
+    // If token was refreshed, redirect to same page to fetch with new token
+    if (tokenRefreshResult?.tokenRefreshed) {
+        const url = request.nextUrl.clone();
+        url.searchParams.set('tokenRefreshed', 'true');
+        return NextResponse.redirect(url);
+    }
+
+    // const accessToken = request.cookies.get("accessToken")?.value || null;
+
+    const accessToken = await getCookie("accessToken") || null;
+
+    let userRole: UserRole | null = null;
+    if (accessToken) {
+        const verifiedToken: JwtPayload | string = jwt.verify(accessToken, process.env.JWT_SECRET as string);
+
+        if (typeof verifiedToken === "string") {
+            await deleteCookie("accessToken");
+            await deleteCookie("refreshToken");
+            return NextResponse.redirect(new URL('/login', request.url));
+        }
+
+        userRole = verifiedToken.role;
+    }
+
+    const routerOwner = getRouteOwner(pathname);
+    //path = /doctor/appointments => "DOCTOR"
+    //path = /my-profile => "COMMON"
+    //path = /login => null
+
+    const isAuth = isAuthRoute(pathname)
+
+    // Rule 1 : User is logged in and trying to access auth route. Redirect to default dashboard
+    if (accessToken && isAuth) {
+        return NextResponse.redirect(new URL(getDefaultDashboardRoute(userRole as UserRole), request.url))
+    }
+
+
+    // Rule 2 : User is trying to access open public route
+    if (routerOwner === null) {
+        return NextResponse.next();
+    }
+
+    // Rule 1 & 2 for open public routes and auth routes
+
+    if (!accessToken) {
+        const loginUrl = new URL("/login", request.url);
+        loginUrl.searchParams.set("redirect", pathname);
+        return NextResponse.redirect(loginUrl);
+    }
+
+    // Rule 3 : User need password change
+
+    if (accessToken) {
+        const userInfo = await getUserInfo();
+        if (userInfo.needPasswordChange) {
+            if (pathname !== "/reset-password") {
+                const resetPasswordUrl = new URL("/reset-password", request.url);
+                resetPasswordUrl.searchParams.set("redirect", pathname);
+                return NextResponse.redirect(resetPasswordUrl);
+            }
+            return NextResponse.next();
+        }
+
+        if (userInfo && !userInfo.needPasswordChange && pathname === '/reset-password') {
+            return NextResponse.redirect(new URL(getDefaultDashboardRoute(userRole as UserRole), request.url));
+        }
+    }
+
+    // Rule 4 : User is trying to access common protected route
+    if (routerOwner === "COMMON") {
+        return NextResponse.next();
+    }
+
+    // Rule 5 : User is trying to access role based protected route
+    if (routerOwner === "ADMIN" || routerOwner === "DOCTOR" || routerOwner === "PATIENT") {
+        if (userRole !== routerOwner) {
+            return NextResponse.redirect(new URL(getDefaultDashboardRoute(userRole as UserRole), request.url))
+        }
+    }
+
+    return NextResponse.next();
+}
+
+
+
+export const config = {
+    matcher: [
+        /*
+         * Match all request paths except for the ones starting with:
+         * - api (API routes)
+         * - _next/static (static files)
+         * - _next/image (image optimization files)
+         * - favicon.ico, sitemap.xml, robots.txt (metadata files)
+         */
+        '/((?!api|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|.well-known).*)',
+    ],
+}
+```
+
+## 72-5 Analysing How Refresh Token Will Work In NextJS
+
+
