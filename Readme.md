@@ -1320,3 +1320,8 @@ export const config = {
 ## 72-5 Analysing How Refresh Token Will Work In NextJS
 
 
+- To Provide a user better experience and to prevent user from unexpect logout while doing a work if the access token expired. we will implement a monitoring system that will; monitor and while routing in page (in proxy file) or button api call(server action server fetch ) if access token it will re revive the logged in state by doing refreshing token using refresh token.
+
+## 72-6 Getting New Access Token With Refresh Token Functionality
+
+## 72-7 Implementing Refresh Token In Server Fetch Function
