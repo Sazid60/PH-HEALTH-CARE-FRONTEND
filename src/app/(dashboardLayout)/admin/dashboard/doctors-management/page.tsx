@@ -1,14 +1,12 @@
-
+import DoctorFilters from "@/components/modules/Admin/DoctorsManagement/DoctorFilters";
 import DoctorsManagementHeader from "@/components/modules/Admin/DoctorsManagement/DoctorsManagementHeader";
 import DoctorsTable from "@/components/modules/Admin/DoctorsManagement/DoctorsTable";
 import TablePagination from "@/components/shared/TablePagination";
 import { TableSkeleton } from "@/components/shared/TableSkeleton";
 import { queryStringFormatter } from "@/lib/formatters";
-
+import { getDoctors } from "@/services/admin/doctorManagement";
+import { getSpecialities } from "@/services/admin/specialitiesManagement";
 import { Suspense } from "react";
-import DoctorFilters from '@/components/modules/Admin/DoctorsManagement/DoctorFilters';
-import { getSpecialities } from "@/services/admin/SpecialitiesManagement";
-import { getDoctors } from "@/services/admin/doctorsManagement";
 
 const AdminDoctorsManagementPage = async ({
   searchParams,

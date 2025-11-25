@@ -7,7 +7,6 @@ export const getCommonNavItems = (role: UserRole): NavSection[] => {
 
     return [
         {
-            title: "General",
             items: [
                 {
                     title: "Dashboard",
@@ -21,7 +20,8 @@ export const getCommonNavItems = (role: UserRole): NavSection[] => {
                     icon: "User",
                     roles: ["PATIENT", "DOCTOR", "ADMIN"],
                 },
-            ],
+
+            ]
         },
         {
             title: "Settings",

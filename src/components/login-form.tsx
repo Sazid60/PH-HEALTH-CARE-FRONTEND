@@ -2,11 +2,10 @@
 import { loginUser } from "@/services/auth/loginUser";
 import { useActionState, useEffect } from "react";
 import { toast } from "sonner";
-
+import InputFieldError from "./shared/InputFieldError";
 import { Button } from "./ui/button";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "./ui/field";
 import { Input } from "./ui/input";
-import InputFieldError from "./shared/InputFieldError";
 
 const LoginForm = ({ redirect }: { redirect?: string }) => {
   const [state, formAction, isPending] = useActionState(loginUser, null);
@@ -30,17 +29,8 @@ const LoginForm = ({ redirect }: { redirect?: string }) => {
               name="email"
               type="email"
               placeholder="m@example.com"
-            //   required
+              //   required
             />
-
-            {/* {getInputFieldError("email", state) && (
-              <FieldDescription className="text-red-600">
-                {getInputFieldError("email", state)}
-              </FieldDescription>
-            )} */}
-
-
-            {/* replaced by component  */}
 
             <InputFieldError field="email" state={state} />
           </Field>
@@ -53,7 +43,7 @@ const LoginForm = ({ redirect }: { redirect?: string }) => {
               name="password"
               type="password"
               placeholder="Enter your password"
-            //   required
+              //   required
             />
             <InputFieldError field="password" state={state} />
           </Field>

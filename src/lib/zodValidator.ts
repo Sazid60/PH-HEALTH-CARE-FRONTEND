@@ -20,4 +20,3 @@ export const zodValidator = <T>(payload: T, schema: ZodObject) => {
         data: validatedPayload.data,
     };
 }
-

@@ -1,5 +1,4 @@
-
-import { getInputFieldError, IInputErrorState } from "@/lib/getInputFiledError";
+import { getInputFieldError, IInputErrorState } from "@/lib/getInputFieldError";
 import { FieldDescription } from "../ui/field";
 
 interface InputFieldErrorProps {
