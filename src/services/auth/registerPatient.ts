@@ -2,15 +2,13 @@
 "use server"
 
 import { serverFetch } from "@/lib/server-fetch";
-
-import { loginUser } from "./loginUser";
 import { zodValidator } from "@/lib/zodValidator";
 import { registerPatientValidationZodSchema } from "@/zod/auth.validation";
+import { loginUser } from "./loginUser";
 
 
 export const registerPatient = async (_currentState: any, formData: any): Promise<any> => {
     try {
-        console.log(formData.get("address"));
         const payload = {
             name: formData.get('name'),
             address: formData.get('address'),

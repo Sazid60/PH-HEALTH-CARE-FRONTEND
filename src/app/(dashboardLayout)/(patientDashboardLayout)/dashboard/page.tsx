@@ -1,11 +1,5 @@
-import React from 'react';
-
 const PatientDashboardPage = () => {
-    return (
-        <div>
-            patient dashboard
-        </div>
-    );
+  return <div>PatientDashboardPage</div>;
 };
 
 export default PatientDashboardPage;

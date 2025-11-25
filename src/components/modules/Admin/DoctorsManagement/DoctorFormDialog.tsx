@@ -16,13 +16,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useSpecialtySelection } from "@/hooks/specialtyHooks/useSpecialtySelection";
+import { createDoctor, updateDoctor } from "@/services/admin/doctorManagement";
 import { IDoctor } from "@/types/doctor.interface";
 import { ISpecialty } from "@/types/specialities.interface";
 import Image from "next/image";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import SpecialtyMultiSelect from "./SpecialtyMultiSelect";
-import { createDoctor, updateDoctor } from "@/services/admin/doctorsManagement";
 
 interface IDoctorFormDialogProps {
   open: boolean;
@@ -69,8 +69,6 @@ const DoctorFormDialog = ({
     formRef.current?.reset(); // Clear form
     onClose(); // Close dialog
   };
-
-  console.log({ state });
 
   const specialtySelection = useSpecialtySelection({
     doctor,

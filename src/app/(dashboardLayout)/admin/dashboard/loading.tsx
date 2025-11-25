@@ -1,9 +1,7 @@
 import { DashboardSkeleton } from "@/components/shared/DashboardSkeleton";
 
 const AdminDashboardLoading = () => {
-    return (
-        <DashboardSkeleton />
-    );
+  return <DashboardSkeleton />;
 };
 
 export default AdminDashboardLoading;

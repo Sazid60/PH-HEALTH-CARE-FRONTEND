@@ -1,9 +1,14 @@
 import { ManagementPageLoading } from "@/components/shared/ManagementPageLoader";
 
 const DoctorsManagementLoading = () => {
-    return (
-        <ManagementPageLoading columns={5} hasActionButton={true} filterCount={3} filterWidths={['w-32', 'w-48', 'w-40']} />
-    );
+  return (
+    <ManagementPageLoading
+      columns={10}
+      hasActionButton
+      filterCount={5}
+      filterWidths={["w-48", "w-32", "w-40", "w-24", "w-36"]}
+    />
+  );
 };
 
 export default DoctorsManagementLoading;

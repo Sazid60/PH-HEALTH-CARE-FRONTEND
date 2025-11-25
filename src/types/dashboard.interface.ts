@@ -1,16 +1,15 @@
-import { UserRole } from '@/lib/auth-utils';
+import { UserRole } from "@/lib/auth-utils";
 
 export interface NavItem {
     title: string;
-    href : string;
-    icon : string;
-    badge ?: string | number;
-    description ?: string;
-    roles : UserRole[]
+    href: string;
+    icon: string; // ✅ Changed from LucideIcon to string
+    badge?: string | number;
+    description?: string;
+    roles: UserRole[];
 }
 
 export interface NavSection {
-    title: string;
+    title?: string;
     items: NavItem[];
 }
-
