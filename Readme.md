@@ -3115,3 +3115,601 @@ export default function AIDoctorSuggestion() {
 ```
 
 ## 72-11 Completing Doctors Detail Page
+
+- src\components\modules\DoctorDetails\DoctorProfileContent.tsx
+
+```tsx
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { IDoctor } from "@/types/doctor.interface";
+import {
+  Briefcase,
+  Calendar,
+  DollarSign,
+  GraduationCap,
+  Hospital,
+  Mail,
+  MapPin,
+  Phone,
+  Star,
+} from "lucide-react";
+
+interface DoctorProfileContentProps {
+  doctor: IDoctor;
+}
+
+const DoctorProfileContent = ({ doctor }: DoctorProfileContentProps) => {
+  const initials = doctor.name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+
+  return (
+    <div className="space-y-6">
+      {/* Doctor Header Card */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex flex-col md:flex-row gap-6">
+            {/* Profile Picture */}
+            <div className="flex justify-center md:justify-start">
+              <Avatar className="h-32 w-32">
+                {doctor.profilePhoto ? (
+                  <AvatarImage
+                    src={
+                      typeof doctor.profilePhoto === "string"
+                        ? doctor.profilePhoto
+                        : undefined
+                    }
+                    alt={doctor.name}
+                  />
+                ) : (
+                  <AvatarFallback className="text-3xl">
+                    {initials}
+                  </AvatarFallback>
+                )}
+              </Avatar>
+            </div>
+
+            {/* Doctor Info */}
+            <div className="flex-1 space-y-4">
+              <div>
+                <h1 className="text-3xl font-bold">{doctor.name}</h1>
+                <p className="text-muted-foreground mt-1">
+                  {doctor.designation}
+                </p>
+              </div>
+
+              {/* Specialties */}
+              {doctor.doctorSpecialties &&
+                doctor.doctorSpecialties.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {doctor.doctorSpecialties.map((specialty) => (
+                      <Badge key={specialty.specialitiesId} variant="secondary">
+                        {specialty.specialties?.title || "Specialty"}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+
+              {/* Rating & Fee */}
+              <div className="flex flex-wrap gap-4">
+                {doctor.averageRating && (
+                  <div className="flex items-center gap-2">
+                    <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
+                    <span className="font-semibold">
+                      {doctor.averageRating.toFixed(1)}
+                    </span>
+                  </div>
+                )}
+                <div className="flex items-center gap-2 text-primary">
+                  <DollarSign className="h-5 w-5" />
+                  <span className="font-semibold">
+                    ${doctor.appointmentFee}
+                  </span>
+                  <span className="text-sm text-muted-foreground">
+                    per visit
+                  </span>
+                </div>
+              </div>
+
+              {/* {!isModal && (
+                <div className="flex gap-4">
+                  <Button>Book Appointment</Button>
+                  <Button variant="outline">View Schedule</Button>
+                </div>
+              )} */}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* Contact Information */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Contact Information</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-center gap-3">
+              <Mail className="h-5 w-5 text-muted-foreground" />
+              <span>{doctor.email}</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <Phone className="h-5 w-5 text-muted-foreground" />
+              <span>{doctor.contactNumber}</span>
+            </div>
+            {doctor.address && (
+              <div className="flex items-start gap-3">
+                <MapPin className="h-5 w-5 text-muted-foreground mt-1" />
+                <span>{doctor.address}</span>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Professional Details */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Professional Details</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-center gap-3">
+              <Briefcase className="h-5 w-5 text-muted-foreground" />
+              <div>
+                <p className="text-sm text-muted-foreground">Experience</p>
+                <p className="font-semibold">
+                  {doctor.experience
+                    ? `${doctor.experience} years`
+                    : "Not specified"}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Hospital className="h-5 w-5 text-muted-foreground" />
+              <div>
+                <p className="text-sm text-muted-foreground">
+                  Current Workplace
+                </p>
+                <p className="font-semibold">{doctor.currentWorkingPlace}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Calendar className="h-5 w-5 text-muted-foreground" />
+              <div>
+                <p className="text-sm text-muted-foreground">
+                  Registration Number
+                </p>
+                <p className="font-semibold">{doctor.registrationNumber}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Qualification */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <GraduationCap className="h-5 w-5" />
+            Qualification & Education
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-muted-foreground">{doctor.qualification}</p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+export default DoctorProfileContent;
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { IDoctor } from "@/types/doctor.interface";
+import {
+  Briefcase,
+  Calendar,
+  DollarSign,
+  GraduationCap,
+  Hospital,
+  Mail,
+  MapPin,
+  Phone,
+  Star,
+} from "lucide-react";
+
+interface DoctorProfileContentProps {
+  doctor: IDoctor;
+}
+
+const DoctorProfileContent = ({ doctor }: DoctorProfileContentProps) => {
+  const initials = doctor.name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+
+  return (
+    <div className="space-y-6">
+      {/* Doctor Header Card */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex flex-col md:flex-row gap-6">
+            {/* Profile Picture */}
+            <div className="flex justify-center md:justify-start">
+              <Avatar className="h-32 w-32">
+                {doctor.profilePhoto ? (
+                  <AvatarImage
+                    src={
+                      typeof doctor.profilePhoto === "string"
+                        ? doctor.profilePhoto
+                        : undefined
+                    }
+                    alt={doctor.name}
+                  />
+                ) : (
+                  <AvatarFallback className="text-3xl">
+                    {initials}
+                  </AvatarFallback>
+                )}
+              </Avatar>
+            </div>
+
+            {/* Doctor Info */}
+            <div className="flex-1 space-y-4">
+              <div>
+                <h1 className="text-3xl font-bold">{doctor.name}</h1>
+                <p className="text-muted-foreground mt-1">
+                  {doctor.designation}
+                </p>
+              </div>
+
+              {/* Specialties */}
+              {doctor.doctorSpecialties &&
+                doctor.doctorSpecialties.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {doctor.doctorSpecialties.map((specialty) => (
+                      <Badge key={specialty.specialitiesId} variant="secondary">
+                        {specialty.specialties?.title || "Specialty"}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+
+              {/* Rating & Fee */}
+              <div className="flex flex-wrap gap-4">
+                {doctor.averageRating && (
+                  <div className="flex items-center gap-2">
+                    <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
+                    <span className="font-semibold">
+                      {doctor.averageRating.toFixed(1)}
+                    </span>
+                  </div>
+                )}
+                <div className="flex items-center gap-2 text-primary">
+                  <DollarSign className="h-5 w-5" />
+                  <span className="font-semibold">
+                    ${doctor.appointmentFee}
+                  </span>
+                  <span className="text-sm text-muted-foreground">
+                    per visit
+                  </span>
+                </div>
+              </div>
+
+              {/* {!isModal && (
+                <div className="flex gap-4">
+                  <Button>Book Appointment</Button>
+                  <Button variant="outline">View Schedule</Button>
+                </div>
+              )} */}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* Contact Information */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Contact Information</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-center gap-3">
+              <Mail className="h-5 w-5 text-muted-foreground" />
+              <span>{doctor.email}</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <Phone className="h-5 w-5 text-muted-foreground" />
+              <span>{doctor.contactNumber}</span>
+            </div>
+            {doctor.address && (
+              <div className="flex items-start gap-3">
+                <MapPin className="h-5 w-5 text-muted-foreground mt-1" />
+                <span>{doctor.address}</span>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Professional Details */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Professional Details</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-center gap-3">
+              <Briefcase className="h-5 w-5 text-muted-foreground" />
+              <div>
+                <p className="text-sm text-muted-foreground">Experience</p>
+                <p className="font-semibold">
+                  {doctor.experience
+                    ? `${doctor.experience} years`
+                    : "Not specified"}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Hospital className="h-5 w-5 text-muted-foreground" />
+              <div>
+                <p className="text-sm text-muted-foreground">
+                  Current Workplace
+                </p>
+                <p className="font-semibold">{doctor.currentWorkingPlace}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Calendar className="h-5 w-5 text-muted-foreground" />
+              <div>
+                <p className="text-sm text-muted-foreground">
+                  Registration Number
+                </p>
+                <p className="font-semibold">{doctor.registrationNumber}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Qualification */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <GraduationCap className="h-5 w-5" />
+            Qualification & Education
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-muted-foreground">{doctor.qualification}</p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+export default DoctorProfileContent;
+
+```
+
+- src\components\modules\DoctorDetails\DoctorReviews.tsx
+
+```tsx
+"use client";
+
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getReviews } from "@/services/patient/reviews.services";
+import { format } from "date-fns";
+import { Star, User } from "lucide-react";
+import { useEffect, useState } from "react";
+
+interface Review {
+  id: string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+  patient?: {
+    name: string;
+    profilePhoto?: string;
+  };
+}
+
+interface DoctorReviewsProps {
+  doctorId: string;
+}
+
+export default function DoctorReviews({ doctorId }: DoctorReviewsProps) {
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({ averageRating: 0, totalReviews: 0 });
+
+  useEffect(() => {
+    const loadReviews = async () => {
+      try {
+        setLoading(true);
+        const response = await getReviews(`?doctorId=${doctorId}&limit=10`);
+
+        if (response.success && response.data) {
+          setReviews(response.data);
+
+          // Calculate stats
+          if (response.data.length > 0) {
+            const total = response.data.reduce(
+              (sum: number, review: Review) => sum + review.rating,
+              0
+            );
+            setStats({
+              averageRating: total / response.data.length,
+              totalReviews: response.data.length,
+            });
+          }
+        }
+      } catch (error) {
+        console.error("Error loading reviews:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadReviews();
+  }, [doctorId]);
+
+  const renderStars = (rating: number) => {
+    return Array.from({ length: 5 }, (_, i) => (
+      <Star
+        key={i}
+        className={`h-4 w-4 ${
+          i < rating ? "fill-yellow-400 text-yellow-400" : "text-gray-300"
+        }`}
+      />
+    ));
+  };
+
+  if (loading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Patient Reviews</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-muted-foreground">Loading reviews...</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle>Patient Reviews</CardTitle>
+          {stats.totalReviews > 0 && (
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
+                {renderStars(Math.round(stats.averageRating))}
+              </div>
+              <span className="font-semibold">
+                {stats.averageRating.toFixed(1)}
+              </span>
+              <Badge variant="secondary">{stats.totalReviews} reviews</Badge>
+            </div>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent>
+        {reviews.length === 0 ? (
+          <p className="text-muted-foreground text-center py-8">
+            No reviews yet. Be the first to review this doctor!
+          </p>
+        ) : (
+          <div className="space-y-4">
+            {reviews.map((review) => (
+              <div
+                key={review.id}
+                className="border-b last:border-0 pb-4 last:pb-0"
+              >
+                <div className="flex items-start gap-3">
+                  <Avatar className="h-10 w-10">
+                    {review.patient?.profilePhoto ? (
+                      <AvatarImage
+                        src={review.patient.profilePhoto}
+                        alt={review.patient.name}
+                      />
+                    ) : (
+                      <AvatarFallback>
+                        <User className="h-5 w-5" />
+                      </AvatarFallback>
+                    )}
+                  </Avatar>
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">
+                          {review.patient?.name || "Anonymous"}
+                        </p>
+                        <div className="flex items-center gap-1 mt-1">
+                          {renderStars(review.rating)}
+                        </div>
+                      </div>
+                      <span className="text-sm text-muted-foreground">
+                        {format(new Date(review.createdAt), "MMM d, yyyy")}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-700">{review.comment}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+```
+
+- src\services\patient\reviews.services.ts
+
+```ts 
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+"use server"
+
+import { serverFetch } from "@/lib/server-fetch";
+
+export async function getReviews(queryString?: string) {
+    try {
+        const url = queryString ? `/review?${queryString}` : "/review";
+
+        const response = await serverFetch.get(url);
+        const result = await response.json();
+
+        return {
+            success: true,
+            data: result.data,
+            meta: result.meta,
+        };
+    } catch (error: any) {
+        console.error("Get reviews error:", error);
+        return {
+            success: false,
+            message: error.message || "Failed to fetch reviews",
+            data: null,
+        };
+    }
+}
+```
+
+- src/app/(commonLayout)/consultation/doctor/[id]/page.tsx
+
+```tsx 
+
+import DoctorProfileContent from "@/components/modules/DoctorDetails/DoctorProfileContent";
+import DoctorReviews from "@/components/modules/DoctorDetails/DoctorReviews";
+import { getDoctorById } from "@/services/admin/doctorManagement";
+
+const DoctorDetailPage = async ({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) => {
+  const { id } = await params;
+  const result = await getDoctorById(id);
+  return (
+    <div className="container mx-auto px-4 py-8 space-y-6">
+      <DoctorProfileContent doctor={result.data} />
+      <DoctorReviews doctorId={id} />
+    </div>
+  );
+};
+
+export default DoctorDetailPage;
+
+```
