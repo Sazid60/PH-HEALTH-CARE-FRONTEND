@@ -1320,3 +1320,449 @@ export const config = {
 ## 72-5 Analysing How Refresh Token Will Work In NextJS
 
 
+- To Provide a user better experience and to prevent user from unexpect logout while doing a work if the access token expired. we will implement a monitoring system that will; monitor and while routing in page (in proxy file) or button api call(server action server fetch ) if access token it will re revive the logged in state by doing refreshing token using refresh token.
+
+## 72-6 Getting New Access Token With Refresh Token Functionality
+
+- lib -> jwtHandlers.ts
+
+```ts
+/* eslint-disable @typescript-eslint/no-explicit-any */
+"use server";
+
+import jwt from "jsonwebtoken";
+
+export const verifyAccessToken = async (token: string) => {
+    try {
+        const verifiedAccessToken = jwt.verify(
+            token,
+            process.env.JWT_SECRET!
+        ) as jwt.JwtPayload;
+
+        return {
+            success: true,
+            message: "Token is valid",
+            payload: verifiedAccessToken,
+        };
+    } catch (error: any) {
+        return {
+            success: false,
+            message: error?.message || "Invalid token",
+        };
+    }
+};
+
+```
+
+- services -> auth -> auth.service.ts
+
+```ts
+"use server";
+import { getDefaultDashboardRoute, isValidRedirectForRole, UserRole } from "@/lib/auth-utils";
+import { verifyAccessToken } from "@/lib/jwtHanlders";
+import { serverFetch } from "@/lib/server-fetch";
+import { zodValidator } from "@/lib/zodValidator";
+import { resetPasswordSchema } from "@/zod/auth.validation";
+import { parse } from "cookie";
+import jwt from "jsonwebtoken";
+import { revalidateTag } from "next/cache";
+import { redirect } from "next/navigation";
+import { getUserInfo } from "./getUserInfo";
+import { deleteCookie, getCookie, setCookie } from "./tokenHandlers";
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+export async function updateMyProfile(formData: FormData) {
+    try {
+        // Create a new FormData with the data property
+        const uploadFormData = new FormData();
+
+        // Get all form fields except the file
+        const data: any = {};
+        formData.forEach((value, key) => {
+            if (key !== 'file' && value) {
+                data[key] = value;
+            }
+        });
+
+        // Add the data as JSON string
+        uploadFormData.append('data', JSON.stringify(data));
+
+        // Add the file if it exists
+        const file = formData.get('file');
+        if (file && file instanceof File && file.size > 0) {
+            uploadFormData.append('file', file);
+        }
+
+        const response = await serverFetch.patch(`/user/update-my-profile`, {
+            body: uploadFormData,
+        });
+
+        const result = await response.json();
+
+        revalidateTag("user-info", { expire: 0 });
+        return result;
+    } catch (error: any) {
+        console.log(error);
+        return {
+            success: false,
+            message: `${process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'}`
+        };
+    }
+}
+
+// Reset Password
+export async function resetPassword(_prevState: any, formData: FormData) {
+
+    const redirectTo = formData.get('redirect') || null;
+
+    // Build validation payload
+    const validationPayload = {
+        newPassword: formData.get("newPassword") as string,
+        confirmPassword: formData.get("confirmPassword") as string,
+    };
+
+    // Validate
+    const validatedPayload = zodValidator(validationPayload, resetPasswordSchema);
+
+    if (!validatedPayload.success && validatedPayload.errors) {
+        return {
+            success: false,
+            message: "Validation failed",
+            formData: validationPayload,
+            errors: validatedPayload.errors,
+        };
+    }
+
+    try {
+
+        const accessToken = await getCookie("accessToken");
+
+        if (!accessToken) {
+            throw new Error("User not authenticated");
+        }
+
+        const verifiedToken = jwt.verify(accessToken as string, process.env.JWT_SECRET!) as jwt.JwtPayload;
+        console.log(verifiedToken)
+
+        const userRole: UserRole = verifiedToken.role;
+
+        const user = await getUserInfo();
+        // API Call
+        const response = await serverFetch.post("/auth/reset-password", {
+            body: JSON.stringify({
+                id: user?.id,
+                password: validationPayload.newPassword,
+            }),
+            headers: {
+                "Authorization": accessToken,
+                "Content-Type": "application/json",
+            },
+        });
+
+        const result = await response.json();
+
+        if (!result.success) {
+            throw new Error(result.message || "Reset password failed");
+        }
+
+        if (result.success) {
+            // await get
+            revalidateTag("user-info", { expire: 0 });
+        }
+
+        if (redirectTo) {
+            const requestedPath = redirectTo.toString();
+            if (isValidRedirectForRole(requestedPath, userRole)) {
+                redirect(`${requestedPath}?loggedIn=true`);
+            } else {
+                redirect(`${getDefaultDashboardRoute(userRole)}?loggedIn=true`);
+            }
+        } else {
+            redirect(`${getDefaultDashboardRoute(userRole)}?loggedIn=true`);
+        }
+
+    } catch (error: any) {
+        // Re-throw NEXT_REDIRECT errors so Next.js can handle them
+        if (error?.digest?.startsWith("NEXT_REDIRECT")) {
+            throw error;
+        }
+        return {
+            success: false,
+            message: error?.message || "Something went wrong",
+            formData: validationPayload,
+        };
+    }
+}
+
+export async function getNewAccessToken() {
+    try {
+        const accessToken = await getCookie("accessToken");
+        const refreshToken = await getCookie("refreshToken");
+
+        //Case 1: Both tokens are missing - user is logged out
+        if (!accessToken && !refreshToken) {
+            return {
+                tokenRefreshed: false,
+            }
+        }
+
+        // Case 2 : Access Token exist- and need to verify
+        if (accessToken) {
+            const verifiedToken = await verifyAccessToken(accessToken);
+
+            if (verifiedToken.success) {
+                return {
+                    tokenRefreshed: false,
+                }
+            }
+        }
+
+        //Case 3 : refresh Token is missing- user is logged out
+        if (!refreshToken) {
+            return {
+                tokenRefreshed: false,
+            }
+        }
+
+        //Case 4: Access Token is invalid/expired- try to get a new one using refresh token
+        // This is the only case we need to call the API
+
+        // Now we know: accessToken is invalid/missing AND refreshToken exists
+        // Safe to call the API
+        let accessTokenObject: null | any = null;
+        let refreshTokenObject: null | any = null;
+
+        // API Call - serverFetch will skip getNewAccessToken for /auth/refresh-token endpoint
+        const response = await serverFetch.post("/auth/refresh-token", {
+            headers: {
+                Cookie: `refreshToken=${refreshToken}`,
+            },
+        });
+
+        const result = await response.json();
+
+        console.log("access token refreshed!!");
+
+        const setCookieHeaders = response.headers.getSetCookie();
+
+        if (setCookieHeaders && setCookieHeaders.length > 0) {
+            setCookieHeaders.forEach((cookie: string) => {
+                const parsedCookie = parse(cookie);
+
+                if (parsedCookie['accessToken']) {
+                    accessTokenObject = parsedCookie;
+                }
+                if (parsedCookie['refreshToken']) {
+                    refreshTokenObject = parsedCookie;
+                }
+            })
+        } else {
+            throw new Error("No Set-Cookie header found");
+        }
+
+        if (!accessTokenObject) {
+            throw new Error("Tokens not found in cookies");
+        }
+
+        if (!refreshTokenObject) {
+            throw new Error("Tokens not found in cookies");
+        }
+
+        await deleteCookie("accessToken");
+        await setCookie("accessToken", accessTokenObject.accessToken, {
+            secure: true,
+            httpOnly: true,
+            maxAge: parseInt(accessTokenObject['Max-Age']) || 1000 * 60 * 60,
+            path: accessTokenObject.Path || "/",
+            sameSite: accessTokenObject['SameSite'] || "none",
+        });
+
+        await deleteCookie("refreshToken");
+        await setCookie("refreshToken", refreshTokenObject.refreshToken, {
+            secure: true,
+            httpOnly: true,
+            maxAge: parseInt(refreshTokenObject['Max-Age']) || 1000 * 60 * 60 * 24 * 90,
+            path: refreshTokenObject.Path || "/",
+            sameSite: refreshTokenObject['SameSite'] || "none",
+        });
+
+        if (!result.success) {
+            throw new Error(result.message || "Token refresh failed");
+        }
+
+
+        return {
+            tokenRefreshed: true,
+            success: true,
+            message: "Token refreshed successfully"
+        };
+
+
+    } catch (error: any) {
+        return {
+            tokenRefreshed: false,
+            success: false,
+            message: error?.message || "Something went wrong",
+        };
+    }
+
+}
+```
+
+- lib -> jwtHandlers.ts
+
+```ts
+/* eslint-disable @typescript-eslint/no-explicit-any */
+"use server";
+
+import jwt from "jsonwebtoken";
+
+export const verifyAccessToken = async (token: string) => {
+    try {
+        const verifiedAccessToken = jwt.verify(
+            token,
+            process.env.JWT_SECRET!
+        ) as jwt.JwtPayload;
+
+        return {
+            success: true,
+            message: "Token is valid",
+            payload: verifiedAccessToken,
+        };
+    } catch (error: any) {
+        return {
+            success: false,
+            message: error?.message || "Invalid token",
+        };
+    }
+};
+
+```
+
+- proxy.ts
+
+```ts
+import jwt, { JwtPayload } from 'jsonwebtoken';
+import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
+import { getDefaultDashboardRoute, getRouteOwner, isAuthRoute, UserRole } from './lib/auth-utils';
+import { getUserInfo } from './services/auth/getUserInfo';
+import { deleteCookie, getCookie } from './services/auth/tokenHandlers';
+import { getNewAccessToken } from './services/auth/auth.service';
+
+
+
+// This function can be marked `async` if using `await` inside
+export async function proxy(request: NextRequest) {
+    const pathname = request.nextUrl.pathname;
+    const hasTokenRefreshedParam = request.nextUrl.searchParams.has('tokenRefreshed');
+
+    // If coming back after token refresh, remove the param and continue
+    if (hasTokenRefreshedParam) {
+        const url = request.nextUrl.clone();
+        url.searchParams.delete('tokenRefreshed');
+        return NextResponse.redirect(url);
+    }
+
+    const tokenRefreshResult = await getNewAccessToken();
+
+    // If token was refreshed, redirect to same page to fetch with new token
+    if (tokenRefreshResult?.tokenRefreshed) {
+        const url = request.nextUrl.clone(); // as we are in server action we can not directly redirect we have to clone and then redirect 
+        url.searchParams.set('tokenRefreshed', 'true');
+        return NextResponse.redirect(url);
+    }
+
+    // const accessToken = request.cookies.get("accessToken")?.value || null;
+
+    const accessToken = await getCookie("accessToken") || null;
+
+    let userRole: UserRole | null = null;
+    if (accessToken) {
+        const verifiedToken: JwtPayload | string = jwt.verify(accessToken, process.env.JWT_SECRET as string);
+
+        if (typeof verifiedToken === "string") {
+            await deleteCookie("accessToken");
+            await deleteCookie("refreshToken");
+            return NextResponse.redirect(new URL('/login', request.url));
+        }
+
+        userRole = verifiedToken.role;
+    }
+
+    const routerOwner = getRouteOwner(pathname);
+    //path = /doctor/appointments => "DOCTOR"
+    //path = /my-profile => "COMMON"
+    //path = /login => null
+
+    const isAuth = isAuthRoute(pathname)
+
+    // Rule 1 : User is logged in and trying to access auth route. Redirect to default dashboard
+    if (accessToken && isAuth) {
+        return NextResponse.redirect(new URL(getDefaultDashboardRoute(userRole as UserRole), request.url))
+    }
+
+
+    // Rule 2 : User is trying to access open public route
+    if (routerOwner === null) {
+        return NextResponse.next();
+    }
+
+    // Rule 1 & 2 for open public routes and auth routes
+
+    if (!accessToken) {
+        const loginUrl = new URL("/login", request.url);
+        loginUrl.searchParams.set("redirect", pathname);
+        return NextResponse.redirect(loginUrl);
+    }
+
+    // Rule 3 : User need password change
+
+    if (accessToken) {
+        const userInfo = await getUserInfo();
+        if (userInfo.needPasswordChange) {
+            if (pathname !== "/reset-password") {
+                const resetPasswordUrl = new URL("/reset-password", request.url);
+                resetPasswordUrl.searchParams.set("redirect", pathname);
+                return NextResponse.redirect(resetPasswordUrl);
+            }
+            return NextResponse.next();
+        }
+
+        if (userInfo && !userInfo.needPasswordChange && pathname === '/reset-password') {
+            return NextResponse.redirect(new URL(getDefaultDashboardRoute(userRole as UserRole), request.url));
+        }
+    }
+
+    // Rule 4 : User is trying to access common protected route
+    if (routerOwner === "COMMON") {
+        return NextResponse.next();
+    }
+
+    // Rule 5 : User is trying to access role based protected route
+    if (routerOwner === "ADMIN" || routerOwner === "DOCTOR" || routerOwner === "PATIENT") {
+        if (userRole !== routerOwner) {
+            return NextResponse.redirect(new URL(getDefaultDashboardRoute(userRole as UserRole), request.url))
+        }
+    }
+
+    return NextResponse.next();
+}
+
+
+
+export const config = {
+    matcher: [
+        /*
+         * Match all request paths except for the ones starting with:
+         * - api (API routes)
+         * - _next/static (static files)
+         * - _next/image (image optimization files)
+         * - favicon.ico, sitemap.xml, robots.txt (metadata files)
+         */
+        '/((?!api|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|.well-known).*)',
+    ],
+}
+```
+
+## 72-7 Implementing Refresh Token In Server Fetch Function
