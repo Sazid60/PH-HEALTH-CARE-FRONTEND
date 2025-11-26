@@ -2436,3 +2436,682 @@ const DoctorMySchedulesPage = async ({
 export default DoctorMySchedulesPage;
 
 ```
+
+## 72-10 Creating Components For Consultation Page And AI Suggestion
+
+- (commonLayout) -> consultation -> page.tsx 
+
+```tsx 
+import AIDoctorSuggestion from "@/components/modules/Consultation/AIDoctorSuggestion";
+import DoctorGrid from "@/components/modules/Consultation/DoctorGrid";
+import DoctorSearchFilters from "@/components/modules/Consultation/DoctorSearchFilter";
+import TablePagination from "@/components/shared/TablePagination";
+import { TableSkeleton } from "@/components/shared/TableSkeleton";
+import { queryStringFormatter } from "@/lib/formatters";
+import { getDoctors } from "@/services/admin/doctorManagement";
+import { getSpecialities } from "@/services/admin/specialitiesManagement";
+import { Suspense } from "react";
+
+// ISR: Revalidate every 10 minutes for doctor listings
+export const revalidate = 600;
+
+const ConsultationPage = async ({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) => {
+  const searchParamsObj = await searchParams;
+  const queryString = queryStringFormatter(searchParamsObj);
+
+  // Fetch doctors and specialties in parallel
+  const [doctorsResponse, specialtiesResponse] = await Promise.all([
+    getDoctors(queryString),
+    getSpecialities(),
+  ]);
+
+  const doctors = doctorsResponse?.data || [];
+  const specialties = specialtiesResponse?.data || [];
+
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <div className="space-y-6">
+        {/* Header */}
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Find a Doctor</h1>
+          <p className="text-muted-foreground mt-2">
+            Search and book appointments with our qualified healthcare
+            professionals
+          </p>
+        </div>
+
+        {/* AI Doctor Suggestion */}
+        <AIDoctorSuggestion />
+
+        {/* Filters */}
+        <DoctorSearchFilters specialties={specialties} />
+
+        {/* Doctor Grid */}
+        <Suspense fallback={<TableSkeleton columns={3} />}>
+          <DoctorGrid doctors={doctors} />
+        </Suspense>
+
+        {/* Pagination */}
+        <TablePagination
+          currentPage={doctorsResponse?.meta?.page || 1}
+          totalPages={doctorsResponse?.meta?.totalPage || 1}
+        />
+      </div>
+    </div>
+  );
+};
+
+export default ConsultationPage;
+
+```
+
+- src\components\modules\Consultation\BookAppointmentDialog.tsx
+
+```tsx
+"use client";
+
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { IDoctor } from "@/types/doctor.interface";
+import { IDoctorSchedule } from "@/types/schedule.interface";
+import { format } from "date-fns";
+import { Calendar, Clock } from "lucide-react";
+import { useState } from "react";
+
+interface BookAppointmentDialogProps {
+  doctor: IDoctor;
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export default function BookAppointmentDialog({
+  doctor,
+  isOpen,
+  onClose,
+}: BookAppointmentDialogProps) {
+  const doctorSchedules = doctor.doctorSchedules || [];
+  const [selectedSchedule, setSelectedSchedule] =
+    useState<IDoctorSchedule | null>(null);
+
+  const handleCloseModal = () => {
+    setSelectedSchedule(null);
+    onClose();
+  };
+
+  const groupSchedulesByDate = () => {
+    const grouped: Record<string, IDoctorSchedule[]> = {};
+
+    doctorSchedules.forEach((schedule) => {
+      if (!schedule.schedule?.startDateTime) return;
+
+      const startDate = new Date(schedule.schedule.startDateTime)
+        .toISOString()
+        .split("T")[0];
+
+      if (startDate) {
+        if (!grouped[startDate]) {
+          grouped[startDate] = [];
+        }
+        grouped[startDate].push(schedule);
+      }
+    });
+
+    return Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b));
+  };
+
+  const groupedSchedules = groupSchedulesByDate();
+
+  // Check if we have schedules but no schedule data (API issue)
+  const hasSchedulesWithoutData =
+    doctorSchedules.length > 0 && groupedSchedules.length === 0;
+
+  return (
+    <Dialog open={isOpen} onOpenChange={handleCloseModal}>
+      <DialogContent className="max-w-2xl max-h-[80vh]">
+        <>
+          <DialogHeader>
+            <DialogTitle>Book Appointment with Dr. {doctor.name}</DialogTitle>
+            <DialogDescription>
+              Select an available time slot for your consultation
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* Doctor Info */}
+            <div className="flex items-center gap-3 p-4 bg-muted rounded-lg">
+              <div>
+                <p className="font-medium">{doctor.designation}</p>
+                <p className="text-sm text-muted-foreground">
+                  Consultation Fee: ${doctor.appointmentFee}
+                </p>
+              </div>
+            </div>
+
+            {/* Schedules */}
+            {hasSchedulesWithoutData ? (
+              <div className="text-center py-12">
+                <Calendar className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+                <p className="text-muted-foreground">
+                  Schedule data not available
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  The doctor has {doctorSchedules.length} schedule
+                  {doctorSchedules.length !== 1 ? "s" : ""}, but detailed
+                  information is not loaded.
+                </p>
+              </div>
+            ) : groupedSchedules.length === 0 ? (
+              <div className="text-center py-12">
+                <Calendar className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+                <p className="text-muted-foreground">
+                  No available slots at the moment
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Please check back later
+                </p>
+              </div>
+            ) : (
+              <ScrollArea className="h-[300px] pr-4">
+                <div className="space-y-4">
+                  {groupedSchedules.map(([date, dateSchedules]) => (
+                    <div key={date}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        <h4 className="font-medium">
+                          {format(new Date(date), "EEEE, MMMM d, yyyy")}
+                        </h4>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {dateSchedules.map((schedule) => {
+                          const startTime = schedule.schedule?.startDateTime
+                            ? new Date(schedule.schedule.startDateTime)
+                            : null;
+
+                          return (
+                            <Button
+                              key={schedule.scheduleId}
+                              variant={
+                                selectedSchedule?.scheduleId ===
+                                schedule.scheduleId
+                                  ? "default"
+                                  : "outline"
+                              }
+                              className="justify-start h-auto py-2"
+                              onClick={() => setSelectedSchedule(schedule)}
+                            >
+                              <Clock className="h-4 w-4 mr-2" />
+                              <span className="text-sm">
+                                {startTime
+                                  ? format(startTime, "h:mm a")
+                                  : "N/A"}
+                              </span>
+                            </Button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button onClick={handleCloseModal}>Close</Button>
+          </DialogFooter>
+        </>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+```
+- src\components\modules\Consultation\DoctorCard.tsx
+
+```tsx
+"use client";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { getInitials } from "@/lib/formatters";
+import { IDoctor } from "@/types/doctor.interface";
+import { Clock, DollarSign, Eye, MapPin, Star } from "lucide-react";
+import Link from "next/link";
+import { useState } from "react";
+import BookAppointmentDialog from "./BookAppointmentDialog";
+
+interface DoctorCard {
+  doctor: IDoctor;
+}
+
+export default function DoctorCard({ doctor }: DoctorCard) {
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+
+  return (
+    <>
+      <Card className="overflow-hidden hover:shadow-lg transition-shadow">
+        <CardHeader className="pb-3">
+          <div className="flex items-start gap-4">
+            <Avatar className="h-16 w-16">
+              <AvatarImage src={doctor.profilePhoto || ""} alt={doctor.name} />
+              <AvatarFallback className="text-lg">
+                {getInitials(doctor.name)}
+              </AvatarFallback>
+            </Avatar>
+
+            <div className="flex-1 min-w-0">
+              <CardTitle className="text-lg line-clamp-1">
+                Dr. {doctor.name}
+              </CardTitle>
+              <CardDescription className="line-clamp-1">
+                {doctor.designation}
+              </CardDescription>
+
+              <div className="flex items-center gap-2 mt-2">
+                <div className="flex items-center gap-1">
+                  <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                  <span className="text-sm font-medium">
+                    {doctor.averageRating?.toFixed(1) || "N/A"}
+                  </span>
+                </div>
+                {doctor.doctorSpecialties &&
+                  doctor.doctorSpecialties.length > 0 && (
+                    <Badge variant="secondary" className="text-xs">
+                      {doctor.doctorSpecialties[0].specialties?.title}
+                    </Badge>
+                  )}
+              </div>
+            </div>
+          </div>
+        </CardHeader>
+
+        <CardContent className="space-y-3 pb-3">
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Clock className="h-4 w-4 shrink-0" />
+              <span className="truncate">{doctor.experience} years exp</span>
+            </div>
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <DollarSign className="h-4 w-4 shrink-0" />
+              <span className="font-semibold text-foreground">
+                ${doctor.appointmentFee}
+              </span>
+            </div>
+          </div>
+
+          {doctor.currentWorkingPlace && (
+            <div className="flex items-start gap-2 text-sm text-muted-foreground">
+              <MapPin className="h-4 w-4 shrink-0 mt-0.5" />
+              <span className="line-clamp-1">{doctor.currentWorkingPlace}</span>
+            </div>
+          )}
+
+          <div className="text-sm">
+            <p className="font-medium mb-1">Qualification:</p>
+            <p className="text-muted-foreground line-clamp-2">
+              {doctor.qualification}
+            </p>
+          </div>
+
+          {doctor.doctorSpecialties && doctor.doctorSpecialties.length > 1 && (
+            <div className="flex flex-wrap gap-1">
+              {doctor.doctorSpecialties.slice(1, 3).map((specialty) => (
+                <Badge
+                  key={specialty.specialitiesId}
+                  variant="outline"
+                  className="text-xs"
+                >
+                  {specialty.specialties?.title}
+                </Badge>
+              ))}
+              {doctor.doctorSpecialties.length > 3 && (
+                <Badge variant="outline" className="text-xs">
+                  +{doctor.doctorSpecialties.length - 3} more
+                </Badge>
+              )}
+            </div>
+          )}
+        </CardContent>
+
+        <CardFooter className="pt-3 border-t flex gap-2">
+          <Link className="flex-1" href={`/consultation/doctor/${doctor.id}`}>
+            <Button variant="outline" className="w-full">
+              <Eye className="h-4 w-4 mr-2" />
+              View Details
+            </Button>
+          </Link>
+          <Button onClick={() => setShowScheduleModal(true)} className="flex-1">
+            Book Appointment
+          </Button>
+        </CardFooter>
+      </Card>
+
+      <BookAppointmentDialog
+        doctor={doctor}
+        isOpen={showScheduleModal}
+        onClose={() => setShowScheduleModal(false)}
+      />
+    </>
+  );
+}
+
+```
+- src\components\modules\Consultation\DoctorGrid.tsx
+
+```tsx
+import { IDoctor } from "@/types/doctor.interface";
+import DoctorCard from "./DoctorCard";
+
+interface DoctorGridProps {
+  doctors: IDoctor[];
+}
+
+export default function DoctorGrid({ doctors }: DoctorGridProps) {
+  if (doctors.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-muted-foreground text-lg">
+          No doctors found matching your criteria.
+        </p>
+        <p className="text-sm text-muted-foreground mt-2">
+          Try adjusting your filters or search terms.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {doctors.map((doctor) => (
+        <DoctorCard key={doctor.id} doctor={doctor} />
+      ))}
+    </div>
+  );
+}
+
+```
+- src\components\modules\Consultation\DoctorSearchFilter.tsx
+
+```tsx
+"use client";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useDebounce } from "@/hooks/useDebounce";
+import { Search } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
+
+interface DoctorSearchFiltersProps {
+  specialties: Array<{ id: string; title: string }>;
+}
+
+export default function DoctorSearchFilters({
+  specialties,
+}: DoctorSearchFiltersProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Initialize state once from URL, but don't re-sync on every searchParams change
+  const [searchTerm, setSearchTerm] = useState(() => {
+    if (typeof window !== "undefined") {
+      return (
+        new URLSearchParams(window.location.search).get("searchTerm") || ""
+      );
+    }
+    return "";
+  });
+
+  const debouncedSearch = useDebounce(searchTerm, 500);
+
+  const updateFilters = useCallback(
+    (key: string, value: string) => {
+      const params = new URLSearchParams(window.location.search);
+
+      if (value && value !== "all") {
+        params.set(key, value);
+      } else {
+        params.delete(key);
+      }
+
+      // Reset to page 1 when filters change
+      params.delete("page");
+
+      router.push(`/consultation?${params.toString()}`);
+    },
+    [router]
+  );
+
+  // Trigger search when debounced value changes
+  useEffect(() => {
+    const urlSearchTerm =
+      new URLSearchParams(window.location.search).get("searchTerm") || "";
+    if (debouncedSearch !== urlSearchTerm) {
+      updateFilters("searchTerm", debouncedSearch);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch]);
+
+  const handleClearFilters = () => {
+    setSearchTerm("");
+    router.push("/consultation");
+  };
+
+  const hasActiveFilters =
+    searchParams.get("searchTerm") || searchParams.get("specialties");
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col md:flex-row gap-4">
+        {/* Search Input */}
+        <div className="flex-1 relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search doctors by name..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+
+        {/* Specialty Filter */}
+        <Select
+          value={searchParams.get("specialties") || "all"}
+          onValueChange={(value) => updateFilters("specialties", value)}
+        >
+          <SelectTrigger className="w-full md:w-[250px]">
+            <SelectValue placeholder="Select Specialty" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Specialties</SelectItem>
+            {specialties.map((specialty) => (
+              <SelectItem key={specialty.id} value={specialty.title}>
+                {specialty.title}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Gender Filter */}
+        <Select
+          value={searchParams.get("gender") || "all"}
+          onValueChange={(value) => updateFilters("gender", value)}
+        >
+          <SelectTrigger className="w-full md:w-[180px]">
+            <SelectValue placeholder="Gender" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Genders</SelectItem>
+            <SelectItem value="MALE">Male</SelectItem>
+            <SelectItem value="FEMALE">Female</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {/* Clear Filters */}
+        {hasActiveFilters && (
+          <Button
+            variant="outline"
+            onClick={handleClearFilters}
+            className="w-full md:w-auto"
+          >
+            Clear Filters
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+```
+
+- src\components\modules\Consultation\AIDoctorSuggestion.tsx
+
+```tsx
+"use client";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
+import { Loader2, Sparkles } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
+
+export default function AIDoctorSuggestion() {
+  const [symptoms, setSymptoms] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [suggestion, setSuggestion] = useState<string>("");
+  const [showSuggestion, setShowSuggestion] = useState(false);
+
+  const handleGetSuggestion = async () => {
+    if (!symptoms.trim() || symptoms.trim().length < 5) {
+      toast.error("Please describe your symptoms (at least 5 characters)");
+      return;
+    }
+
+    setIsLoading(true);
+    setSuggestion("");
+    setShowSuggestion(false);
+
+    try {
+      //   const response = await getDoctorSuggestion(symptoms);
+      //   if (response.success) {
+      //     setSuggestion(response.data || "No suggestion available");
+      //     setShowSuggestion(true);
+      //   } else {
+      //     toast.error(response.message || "Failed to get AI suggestion");
+      //   }
+    } catch (error) {
+      console.error("Error getting AI suggestion:", error);
+      toast.error("Failed to get AI suggestion");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <Card className="bg-linear-to-br from-purple-50 to-blue-50 border-purple-200">
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <Sparkles className="h-5 w-5 text-purple-600" />
+          <CardTitle className="text-purple-900">
+            AI Doctor Suggestion
+          </CardTitle>
+        </div>
+        <CardDescription>
+          Describe your symptoms and get AI-powered doctor specialty
+          recommendations
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div>
+          <Textarea
+            placeholder="Describe your symptoms in detail (e.g., headache, fever, cough, etc.)..."
+            value={symptoms}
+            onChange={(e) => setSymptoms(e.target.value)}
+            rows={4}
+            className="resize-none bg-white"
+            disabled={isLoading}
+          />
+          <p className="text-xs text-muted-foreground mt-1">
+            {symptoms.length} characters
+          </p>
+        </div>
+
+        <Button
+          onClick={handleGetSuggestion}
+          disabled={isLoading || symptoms.trim().length < 5}
+          className="w-full bg-purple-600 hover:bg-purple-700"
+        >
+          {isLoading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Getting AI Suggestion...
+            </>
+          ) : (
+            <>
+              <Sparkles className="mr-2 h-4 w-4" />
+              Get AI Recommendation
+            </>
+          )}
+        </Button>
+
+        {showSuggestion && suggestion && (
+          <div className="space-y-3 p-4 bg-white rounded-lg border border-purple-200">
+            <div className="flex items-center gap-2">
+              <Badge
+                variant="outline"
+                className="bg-purple-100 text-purple-700"
+              >
+                AI Recommendation
+              </Badge>
+            </div>
+            <div className="prose prose-sm max-w-none">
+              <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                {suggestion}
+              </p>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+```
+
+## 72-11 Completing Doctors Detail Page
