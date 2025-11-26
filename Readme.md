@@ -1823,6 +1823,553 @@ export const serverFetch = {
 
 ## 72-8 Creating Server Actions And Components For Doctors Schedule
 
+- services -> doctor -> doctorSchedule.services.ts
+
+```ts
+"use server"
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { serverFetch } from "@/lib/server-fetch";
+
+export async function getDoctorOwnSchedules(queryString?: string) {
+    try {
+        // const response = await serverFetch.get(`/doctor-schedule/my-schedule${queryString ? `?${queryString}` : ""}`);
+        const response = await serverFetch.get(`/doctor-schedule${queryString ? `?${queryString}` : ""}`);
+        const result = await response.json();
+        return {
+            success: result.success,
+            data: Array.isArray(result.data) ? result.data : [],
+            meta: result.meta,
+        };
+    } catch (error: any) {
+        console.log(error);
+        return {
+            success: false,
+            data: [],
+            message: `${process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'}`
+        };
+    }
+}
+
+export async function getAvailableSchedules() {
+    try {
+        const response = await serverFetch.get(`/schedule`);
+        const result = await response.json();
+        return result;
+    } catch (error: any) {
+        console.log(error);
+        return {
+            success: false,
+            message: `${process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'}`
+        };
+    }
+}
+
+export async function createDoctorSchedule(scheduleIds: string[]) {
+    try {
+        const response = await serverFetch.post(`/doctor-schedule`, {
+            body: JSON.stringify({ scheduleIds }),
+            headers: {
+                "Content-Type": "application/json",
+            },
+        });
+
+        const result = await response.json();
+        return result;
+    } catch (error: any) {
+        console.log(error);
+        return {
+            success: false,
+            message: `${process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'}`
+        };
+    }
+}
+
+export async function deleteDoctorOwnSchedule(scheduleId: string) {
+    try {
+        const response = await serverFetch.delete(`/doctor-schedule/${scheduleId}`);
+        const result = await response.json();
+
+        return {
+            success: result.success,
+            message: result.message || "Schedule removed successfully",
+        };
+    } catch (error: any) {
+        console.error("Delete schedule error:", error);
+        return {
+            success: false,
+            message: error.message || "Failed to remove schedule",
+        };
+    }
+}
+```
+
+- components -> doctor -> BookScheduleDialog.tsx
+
+```tsx 
+"use client";
+
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import {
+  createDoctorSchedule,
+  getAvailableSchedules,
+} from "@/services/doctor/doctorScedule.services";
+import { ISchedule } from "@/types/schedule.interface";
+import { format } from "date-fns";
+import { Calendar } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
+
+interface BookScheduleDialogProps {
+  open: boolean;
+  onClose: () => void;
+  onSuccess?: () => void;
+  availableSchedules: ISchedule[];
+}
+
+export default function BookScheduleDialog({
+  open,
+  onClose,
+  onSuccess,
+  availableSchedules: initialAvailableSchedules = [],
+}: BookScheduleDialogProps) {
+  const [availableSchedules, setAvailableSchedules] = useState<ISchedule[]>(
+    initialAvailableSchedules
+  );
+  const [selectedSchedules, setSelectedSchedules] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadingSchedules, setLoadingSchedules] = useState(false);
+  const router = useRouter();
+
+  useEffect(() => {
+    if (open) {
+      loadAvailableSchedules();
+    } else {
+      setSelectedSchedules([]);
+    }
+  }, [open]);
+
+  const loadAvailableSchedules = async () => {
+    try {
+      setLoadingSchedules(true);
+      const response = await getAvailableSchedules();
+      console.log("response:", response);
+      setAvailableSchedules(response?.data || []);
+    } catch (error) {
+      console.error("Error loading schedules:", error);
+      toast.error("Failed to load available schedules");
+    } finally {
+      setLoadingSchedules(false);
+    }
+  };
+
+  const handleToggleSchedule = (scheduleId: string) => {
+    setSelectedSchedules((prev) =>
+      prev.includes(scheduleId)
+        ? prev.filter((id) => id !== scheduleId)
+        : [...prev, scheduleId]
+    );
+  };
+
+  const handleSubmit = async () => {
+    if (selectedSchedules.length === 0) {
+      toast.error("Please select at least one schedule");
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      await createDoctorSchedule(selectedSchedules);
+      toast.success(
+        `Successfully booked ${selectedSchedules.length} schedule${
+          selectedSchedules.length > 1 ? "s" : ""
+        }`
+      );
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        router.refresh();
+      }
+      onClose();
+    } catch (error) {
+      console.error("Error booking schedules:", error);
+      toast.error("Failed to book schedules");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const groupSchedulesByDate = () => {
+    const grouped: Record<string, ISchedule[]> = {};
+
+    if (availableSchedules.length > 0) {
+      availableSchedules.forEach((schedule) => {
+        const date = format(new Date(schedule.startDateTime), "yyyy-MM-dd");
+        if (!grouped[date]) {
+          grouped[date] = [];
+        }
+        grouped[date].push(schedule);
+      });
+    }
+
+    return Object.entries(grouped).sort(
+      ([dateA], [dateB]) =>
+        new Date(dateA).getTime() - new Date(dateB).getTime()
+    );
+  };
+
+  const groupedSchedules = groupSchedulesByDate();
+
+  console.log({ availableSchedules, groupedSchedules });
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Book Schedules</DialogTitle>
+          <DialogDescription>
+            Select time slots from available schedules to add to your calendar
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="py-4">
+          {loadingSchedules ? (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">Loading schedules...</p>
+            </div>
+          ) : availableSchedules.length === 0 ? (
+            <div className="text-center py-8">
+              <Calendar className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+              <p className="text-muted-foreground">
+                No available schedules found
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {groupedSchedules.map(([date, daySchedules]) => (
+                <div key={date}>
+                  <h3 className="font-medium mb-3">
+                    {format(new Date(date), "EEEE, MMMM d, yyyy")}
+                  </h3>
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    {daySchedules.map((schedule) => (
+                      <div
+                        key={schedule.id}
+                        className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-accent cursor-pointer"
+                        onClick={() => handleToggleSchedule(schedule.id)}
+                      >
+                        <Checkbox
+                          id={schedule.id}
+                          checked={selectedSchedules.includes(schedule.id)}
+                          onCheckedChange={() =>
+                            handleToggleSchedule(schedule.id)
+                          }
+                        />
+                        <Label
+                          htmlFor={schedule.id}
+                          className="flex-1 cursor-pointer"
+                        >
+                          {format(new Date(schedule.startDateTime), "h:mm a")} -{" "}
+                          {format(new Date(schedule.endDateTime), "h:mm a")}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <DialogFooter>
+          <div className="flex items-center justify-between w-full">
+            <p className="text-sm text-muted-foreground">
+              {selectedSchedules.length} schedule
+              {selectedSchedules.length !== 1 ? "s" : ""} selected
+            </p>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={onClose} disabled={isLoading}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSubmit}
+                disabled={selectedSchedules.length === 0 || isLoading}
+              >
+                {isLoading ? "Booking..." : "Book Schedules"}
+              </Button>
+            </div>
+          </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+```
+
+- components -> doctor -> myScheduleColumns.tsx
+
+```tsx
+"use client";
+
+import { Column } from "@/components/shared/ManagementTable";
+import { Badge } from "@/components/ui/badge";
+import { IDoctorSchedule } from "@/types/schedule.interface";
+import { format, isBefore, startOfDay } from "date-fns";
+
+const isPastSchedule = (schedule: IDoctorSchedule) => {
+  return isBefore(
+    new Date(schedule.schedule?.startDateTime || ""),
+    startOfDay(new Date())
+  );
+};
+
+export const myScheduleColumns: Column<IDoctorSchedule>[] = [
+  {
+    header: "Date",
+    accessor: (schedule) => (
+      <span className="font-medium">
+        {schedule.schedule?.startDateTime &&
+          format(new Date(schedule.schedule.startDateTime), "MMM d, yyyy")}
+      </span>
+    ),
+    sortKey: "schedule.startDateTime",
+  },
+  {
+    header: "Time Slot",
+    accessor: (schedule) => (
+      <div className="flex items-center gap-2">
+        <span className="text-sm">
+          {schedule.schedule?.startDateTime &&
+            format(new Date(schedule.schedule.startDateTime), "h:mm a")}{" "}
+          -{" "}
+          {schedule.schedule?.endDateTime &&
+            format(new Date(schedule.schedule.endDateTime), "h:mm a")}
+        </span>
+      </div>
+    ),
+  },
+  {
+    header: "Status",
+    accessor: (schedule) => {
+      const isPast = isPastSchedule(schedule);
+      return isPast ? (
+        <Badge variant="secondary">Past</Badge>
+      ) : (
+        <Badge variant="outline" className="bg-green-50 text-green-700">
+          Upcoming
+        </Badge>
+      );
+    },
+  },
+  {
+    header: "Booking Status",
+    accessor: (schedule) =>
+      schedule.isBooked ? (
+        <Badge variant="default" className="bg-blue-600">
+          Booked
+        </Badge>
+      ) : (
+        <Badge variant="outline">Available</Badge>
+      ),
+  },
+];
+
+```
+- components -> doctor -> MyScheduleFilters.tsx
+
+```tsx
+"use client";
+
+import ClearFiltersButton from "@/components/shared/ClearFiltersButton";
+import RefreshButton from "@/components/shared/RefreshButton";
+import SelectFilter from "@/components/shared/SelectFilter";
+
+const MySchedulesFilters = () => {
+  return (
+    <div className="space-y-3">
+      {/* Row 1: Refresh Button */}
+      <div className="flex items-center gap-3">
+        <RefreshButton />
+      </div>
+
+      {/* Row 2: Filter Controls */}
+      <div className="flex items-center gap-3 flex-wrap">
+        {/* Booking Status Filter */}
+        <SelectFilter
+          paramName="isBooked"
+          placeholder="Booking Status"
+          defaultValue="All Schedules"
+          options={[
+            { label: "Available", value: "false" },
+            { label: "Booked", value: "true" },
+          ]}
+        />
+
+        {/* Clear All Filters */}
+        <ClearFiltersButton />
+      </div>
+    </div>
+  );
+};
+
+export default MySchedulesFilters;
+
+```
+- components -> doctor -> MyScheduleHeader.tsx
+
+```tsx
+/* eslint-disable @typescript-eslint/no-explicit-any */
+"use client";
+
+import ManagementPageHeader from "@/components/shared/ManagementPageHeader";
+import { Plus } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
+import BookScheduleDialog from "./BookScheduleDialog";
+
+interface MySchedulesHeaderProps {
+  availableSchedules: any[];
+}
+
+const MySchedulesHeader = ({ availableSchedules }: MySchedulesHeaderProps) => {
+  const router = useRouter();
+  const [, startTransition] = useTransition();
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  const handleSuccess = () => {
+    setIsDialogOpen(false);
+    startTransition(() => {
+      router.refresh();
+    });
+  };
+
+  const handleOpenDialog = () => {
+    setIsDialogOpen(true);
+  };
+
+  const handleCloseDialog = () => {
+    setIsDialogOpen(false);
+  };
+
+  return (
+    <>
+      <BookScheduleDialog
+        open={isDialogOpen}
+        onClose={handleCloseDialog}
+        onSuccess={handleSuccess}
+        availableSchedules={availableSchedules}
+      />
+
+      <ManagementPageHeader
+        title="My Schedules"
+        description="Manage your availability and time slots for patient consultations"
+        action={{
+          label: "Book Schedule",
+          icon: Plus,
+          onClick: handleOpenDialog,
+        }}
+      />
+    </>
+  );
+};
+
+export default MySchedulesHeader;
+
+```
+- components -> doctor -> MyScheduleTable.tsx
+
+```tsx
+"use client";
+
+import DeleteConfirmationDialog from "@/components/shared/DeleteConfirmationDialog";
+import ManagementTable from "@/components/shared/ManagementTable";
+import { deleteDoctorOwnSchedule } from "@/services/doctor/doctorScedule.services";
+import { IDoctorSchedule } from "@/types/schedule.interface";
+import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
+import { toast } from "sonner";
+import { myScheduleColumns } from "./myScheduleColumns";
+
+interface MySchedulesTableProps {
+  schedules: IDoctorSchedule[];
+}
+
+export default function MySchedulesTable({
+  schedules = [],
+}: MySchedulesTableProps) {
+  const router = useRouter();
+  const [, startTransition] = useTransition();
+  const [deletingSchedule, setDeletingSchedule] =
+    useState<IDoctorSchedule | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleRefresh = () => {
+    startTransition(() => {
+      router.refresh();
+    });
+  };
+
+  const handleDelete = (schedule: IDoctorSchedule) => {
+    // Only allow deletion of unbooked schedules
+    if (!schedule.isBooked) {
+      setDeletingSchedule(schedule);
+    } else {
+      toast.error("Cannot delete booked schedule");
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!deletingSchedule) return;
+
+    setIsDeleting(true);
+    const result = await deleteDoctorOwnSchedule(deletingSchedule.scheduleId);
+    setIsDeleting(false);
+
+    if (result.success) {
+      toast.success(result.message || "Schedule deleted successfully");
+      setDeletingSchedule(null);
+      handleRefresh();
+    } else {
+      toast.error(result.message || "Failed to delete schedule");
+    }
+  };
+
+  return (
+    <>
+      <ManagementTable
+        data={schedules}
+        columns={myScheduleColumns}
+        onDelete={handleDelete}
+        getRowKey={(schedule) => schedule.scheduleId}
+        emptyMessage="No schedules found. Try adjusting your filters or book new schedules."
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <DeleteConfirmationDialog
+        open={!!deletingSchedule}
+        onOpenChange={(open) => !open && setDeletingSchedule(null)}
+        onConfirm={confirmDelete}
+        title="Delete Schedule"
+        description="Are you sure you want to delete this schedule slot? This action cannot be undone."
+        isDeleting={isDeleting}
+      />
+    </>
+  );
+}
+
+```
+
 
 ## 72-9 Completing Doctor Schedule Page For Doctor Role
 
