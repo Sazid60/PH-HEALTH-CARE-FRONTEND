@@ -3230,7 +3230,577 @@ export default function DoctorAppointmentsTable({
 ```
 
 ## 73-8 Creating Components And Page For Prescription List Table For Doctor
+- src\components\modules\Doctor\DoctorPrescription\doctorPrescriptionColumns.tsx
+
+```tsx 
+"use client";
+import { Column } from "@/components/shared/ManagementTable";
+import { Badge } from "@/components/ui/badge";
+import { IPrescription } from "@/types/prescription.interface";
+import { format } from "date-fns";
+
+export const doctorPrescriptionColumns: Column<IPrescription>[] = [
+  {
+    header: "Patient",
+    accessor: (prescription: IPrescription) => (
+      <div>
+        <p className="font-medium">{prescription.patient?.name || "N/A"}</p>
+        <p className="text-sm text-muted-foreground">
+          {prescription.patient?.email || "N/A"}
+        </p>
+      </div>
+    ),
+  },
+  {
+    header: "Appointment Date",
+    accessor: (prescription: IPrescription) =>
+      prescription.appointment?.schedule?.startDateTime
+        ? format(
+            new Date(prescription.appointment.schedule.startDateTime),
+            "PPP"
+          )
+        : "N/A",
+  },
+  {
+    header: "Follow-up Date",
+    accessor: (prescription: IPrescription) =>
+      prescription.followUpDate ? (
+        <Badge variant="outline" className="border-blue-500 text-blue-700">
+          {format(new Date(prescription.followUpDate), "PPP")}
+        </Badge>
+      ) : (
+        <span className="text-muted-foreground text-sm">-</span>
+      ),
+  },
+  {
+    header: "Created At",
+    accessor: (prescription) => format(new Date(prescription.createdAt), "PPP"),
+    sortKey: "createdAt",
+  },
+];
+
+```
+
+- src\components\modules\Doctor\DoctorPrescription\DoctorPrescriptionTable.tsx
+
+```tsx 
+"use client";
+
+import ManagementTable from "@/components/shared/ManagementTable";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { format } from "date-fns";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { doctorPrescriptionColumns } from "./doctorPrescriptionColumns";
+import { IPrescription } from "@/types/prescription.interface";
+
+interface DoctorPrescriptionsTableProps {
+  prescriptions: IPrescription[];
+}
+
+export default function DoctorPrescriptionsTable({
+  prescriptions = [],
+}: DoctorPrescriptionsTableProps) {
+  const router = useRouter();
+  const [viewingPrescription, setViewingPrescription] =
+    useState<IPrescription | null>(null);
+
+  const handleView = (prescription: IPrescription) => {
+    setViewingPrescription(prescription);
+  };
+
+  const handleClose = () => {
+    setViewingPrescription(null);
+    router.refresh();
+  };
+
+  return (
+    <>
+      <ManagementTable
+        data={prescriptions}
+        columns={doctorPrescriptionColumns}
+        onView={handleView}
+        getRowKey={(prescription) => prescription.id}
+        emptyMessage="No prescriptions found"
+      />
+
+      {/* View Detail Dialog */}
+      {viewingPrescription && (
+        <Dialog open={!!viewingPrescription} onOpenChange={handleClose}>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Prescription Details</DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-6">
+              {/* Patient Information */}
+              <div className="border rounded-lg p-4 bg-muted/50">
+                <h3 className="font-semibold text-lg mb-3">
+                  Patient Information
+                </h3>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-muted-foreground">Name</p>
+                    <p className="font-medium">
+                      {viewingPrescription.patient?.name || "N/A"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Email</p>
+                    <p className="font-medium">
+                      {viewingPrescription.patient?.email || "N/A"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Contact Number</p>
+                    <p className="font-medium">
+                      {viewingPrescription.patient?.contactNumber ||
+                        "Not provided"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Address</p>
+                    <p className="font-medium">
+                      {viewingPrescription.patient?.address || "Not provided"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Appointment Information */}
+              <div className="border rounded-lg p-4">
+                <h3 className="font-semibold text-lg mb-3">
+                  Appointment Information
+                </h3>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-muted-foreground">Appointment Date</p>
+                    <p className="font-medium">
+                      {viewingPrescription.appointment?.schedule?.startDateTime
+                        ? format(
+                            new Date(
+                              viewingPrescription.appointment.schedule.startDateTime
+                            ),
+                            "PPP"
+                          )
+                        : "N/A"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Time</p>
+                    <p className="font-medium">
+                      {viewingPrescription.appointment?.schedule
+                        ?.startDateTime &&
+                      viewingPrescription.appointment?.schedule?.endDateTime
+                        ? `${format(
+                            new Date(
+                              viewingPrescription.appointment.schedule.startDateTime
+                            ),
+                            "p"
+                          )} - ${format(
+                            new Date(
+                              viewingPrescription.appointment.schedule.endDateTime
+                            ),
+                            "p"
+                          )}`
+                        : "N/A"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Status</p>
+                    <div>
+                      <Badge variant="default" className="bg-green-600">
+                        {viewingPrescription.appointment?.status || "N/A"}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Payment</p>
+                    <div>
+                      <Badge variant="default">
+                        {viewingPrescription.appointment?.paymentStatus ||
+                          "N/A"}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Prescription Details */}
+              <div className="border rounded-lg p-4">
+                <h3 className="font-semibold text-lg mb-3">
+                  Prescription Details
+                </h3>
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-2">
+                      Instructions
+                    </p>
+                    <div className="bg-muted/50 p-4 rounded-md">
+                      <p className="text-sm whitespace-pre-wrap">
+                        {viewingPrescription.instructions}
+                      </p>
+                    </div>
+                  </div>
+
+                  {viewingPrescription.followUpDate && (
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-2">
+                        Follow-up Date
+                      </p>
+                      <Badge
+                        variant="outline"
+                        className="border-blue-500 text-blue-700 bg-blue-50"
+                      >
+                        {format(
+                          new Date(viewingPrescription.followUpDate),
+                          "PPP"
+                        )}
+                      </Badge>
+                    </div>
+                  )}
+
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-2">
+                      Prescribed On
+                    </p>
+                    <p className="text-sm font-medium">
+                      {format(new Date(viewingPrescription.createdAt), "PPP p")}
+                    </p>
+                  </div>
+
+                  <div className="text-xs text-muted-foreground italic pt-2 border-t">
+                    Note: Prescriptions are read-only and cannot be edited or
+                    deleted
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-4 border-t">
+              <Button variant="outline" onClick={handleClose}>
+                Close
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+    </>
+  );
+}
+
+```
+
 
 ## 73-9 Creating Components For Prescription List And Review For Patient
 
 
+- src\components\modules\Patient\PatientPrescription\PatientPrescriptionList.tsx
+
+```tsx 
+"use client";
+
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { IPrescription } from "@/types/prescription.interface";
+import { format } from "date-fns";
+import { Calendar, Clock, FileText, User } from "lucide-react";
+
+interface PatientPrescriptionsListProps {
+  prescriptions: IPrescription[];
+}
+
+export default function PatientPrescriptionsList({
+  prescriptions = [],
+}: PatientPrescriptionsListProps) {
+  // Sort prescriptions by creation date (latest first)
+  const sortedPrescriptions = [...prescriptions].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+
+  if (prescriptions.length === 0) {
+    return (
+      <Card className="p-8 text-center">
+        <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+        <h3 className="text-lg font-semibold mb-2">No Prescriptions Yet</h3>
+        <p className="text-muted-foreground">
+          Your prescriptions will appear here after your appointments are
+          completed.
+        </p>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      {sortedPrescriptions.map((prescription) => (
+        <Card
+          key={prescription.id}
+          className="p-6 hover:shadow-lg transition-shadow"
+        >
+          {/* Doctor Information */}
+          <div className="flex items-start gap-3 mb-4 pb-4 border-b">
+            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+              <User className="h-6 w-6 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="font-semibold text-lg truncate">
+                {prescription.doctor?.name || "N/A"}
+              </h3>
+              <p className="text-sm text-muted-foreground truncate">
+                {prescription.doctor?.email || "N/A"}
+              </p>
+              {prescription.doctor?.designation && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {prescription.doctor.designation}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Appointment Date */}
+          {prescription.appointment?.schedule?.startDateTime && (
+            <div className="flex items-center gap-2 mb-3 text-sm">
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <span className="text-muted-foreground">Appointment:</span>
+              <span className="font-medium">
+                {format(
+                  new Date(prescription.appointment.schedule.startDateTime),
+                  "PPP"
+                )}
+              </span>
+            </div>
+          )}
+
+          {/* Instructions Preview */}
+          <div className="mb-4">
+            <div className="flex items-center gap-2 mb-2">
+              <FileText className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium">Instructions</span>
+            </div>
+            <div className="bg-muted/50 p-3 rounded-md">
+              <p className="text-sm text-muted-foreground line-clamp-3">
+                {prescription.instructions}
+              </p>
+            </div>
+          </div>
+
+          {/* Follow-up Date */}
+          {prescription.followUpDate && (
+            <div className="mb-4">
+              <Badge
+                variant="outline"
+                className="border-blue-500 text-blue-700 bg-blue-50"
+              >
+                <Calendar className="h-3 w-3 mr-1" />
+                Follow-up: {format(new Date(prescription.followUpDate), "PPP")}
+              </Badge>
+            </div>
+          )}
+
+          {/* Prescribed Date */}
+          <div className="flex items-center gap-2 text-xs text-muted-foreground pt-3 border-t">
+            <Clock className="h-3 w-3" />
+            <span>
+              Prescribed on {format(new Date(prescription.createdAt), "PPP")}
+            </span>
+          </div>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+```
+
+- src\components\modules\Patient\PatientAppointment\ReviewDialog.tsx
+
+```tsx 
+"use client";
+
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { createReview } from "@/services/patient/reviews.services";
+import { Star } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { toast } from "sonner";
+
+interface ReviewDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+  appointmentId: string;
+  doctorName: string;
+}
+
+export default function ReviewDialog({
+  isOpen,
+  onClose,
+  appointmentId,
+  doctorName,
+}: ReviewDialogProps) {
+  const router = useRouter();
+  const [rating, setRating] = useState(0);
+  const [hoveredRating, setHoveredRating] = useState(0);
+  const [comment, setComment] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (rating === 0) {
+      toast.error("Please select a rating");
+      return;
+    }
+
+    if (comment.trim().length < 10) {
+      toast.error("Comment must be at least 10 characters");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const result = await createReview({
+        appointmentId,
+        rating,
+        comment: comment.trim(),
+      });
+
+      if (result.success) {
+        toast.success("Review submitted successfully!");
+        onClose();
+        router.refresh();
+      } else {
+        toast.error(result.message || "Failed to submit review");
+      }
+    } catch (error) {
+      toast.error("An error occurred while submitting review");
+      console.error(error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleClose = () => {
+    if (!isSubmitting) {
+      setRating(0);
+      setHoveredRating(0);
+      setComment("");
+      onClose();
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
+      <DialogContent className="max-w-md">
+        <form onSubmit={handleSubmit}>
+          <DialogHeader>
+            <DialogTitle>Write a Review</DialogTitle>
+            <DialogDescription>
+              Share your experience with Dr. {doctorName}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6 py-4">
+            {/* Rating */}
+            <div className="space-y-2">
+              <Label htmlFor="rating">Rating *</Label>
+              <div className="flex items-center gap-2">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => setRating(star)}
+                    onMouseEnter={() => setHoveredRating(star)}
+                    onMouseLeave={() => setHoveredRating(0)}
+                    className="focus:outline-none transition-transform hover:scale-110"
+                  >
+                    <Star
+                      className={`h-8 w-8 ${
+                        star <= (hoveredRating || rating)
+                          ? "fill-yellow-500 text-yellow-500"
+                          : "text-gray-300"
+                      }`}
+                    />
+                  </button>
+                ))}
+                {rating > 0 && (
+                  <span className="ml-2 text-sm font-medium">
+                    {rating}/5 -{" "}
+                    {rating === 1
+                      ? "Poor"
+                      : rating === 2
+                      ? "Fair"
+                      : rating === 3
+                      ? "Good"
+                      : rating === 4
+                      ? "Very Good"
+                      : "Excellent"}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Comment */}
+            <div className="space-y-2">
+              <Label htmlFor="comment">Comment * (minimum 10 characters)</Label>
+              <Textarea
+                id="comment"
+                placeholder="Share your experience with this doctor..."
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                rows={5}
+                disabled={isSubmitting}
+                className="resize-none"
+              />
+              <p className="text-xs text-muted-foreground">
+                {comment.length} characters
+              </p>
+            </div>
+
+            {/* Warning */}
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <p className="text-sm text-amber-800">
+                <strong>Note:</strong> Reviews cannot be edited or deleted once
+                submitted. Please ensure your feedback is accurate.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleClose}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Submitting..." : "Submit Review"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+```
