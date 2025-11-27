@@ -20,7 +20,6 @@ const ResetPasswordForm = ({ redirect }: { redirect?: string }) => {
   useEffect(() => {
     if (state && !state.success && state.message) {
       toast.error(state.message);
-      console.log(state)
     }
   }, [state]);
 

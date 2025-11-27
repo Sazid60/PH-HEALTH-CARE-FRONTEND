@@ -38,7 +38,6 @@ export default function AIDoctorSuggestion() {
       //   } else {
       //     toast.error(response.message || "Failed to get AI suggestion");
       //   }
-      console.log("kire ai kaj korlo na kn?")
     } catch (error) {
       console.error("Error getting AI suggestion:", error);
       toast.error("Failed to get AI suggestion");

@@ -24,7 +24,7 @@ export async function proxy(request: NextRequest) {
 
     // If token was refreshed, redirect to same page to fetch with new token
     if (tokenRefreshResult?.tokenRefreshed) {
-        const url = request.nextUrl.clone(); // as we are in server action we can not directly redirect we have to clone and then redirect 
+        const url = request.nextUrl.clone();
         url.searchParams.set('tokenRefreshed', 'true');
         return NextResponse.redirect(url);
     }
