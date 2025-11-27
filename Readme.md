@@ -2491,6 +2491,743 @@ export default AppointmentDetails;
 
 ```
 ## 73-7 Creating Components And Page For Appointment List Table For Doctor
+- src\components\modules\Doctor\DoctorAppointments\ChangeAppointmentStatusDialog.tsx
+
+```tsx
+"use client";
+
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { changeAppointmentStatus } from "@/services/patient/appointment.service";
+import {
+  AppointmentStatus,
+  IAppointment,
+} from "@/types/appointments.interface";
+import { AlertCircle, Loader2 } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
+
+interface ChangeStatusDialogProps {
+  appointment: IAppointment;
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export default function ChangeAppointmentStatusDialog({
+  appointment,
+  isOpen,
+  onClose,
+}: ChangeStatusDialogProps) {
+  const [newStatus, setNewStatus] = useState<AppointmentStatus>(
+    appointment.status
+  );
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const statusOptions = [
+    { value: AppointmentStatus.SCHEDULED, label: "Scheduled" },
+    { value: AppointmentStatus.INPROGRESS, label: "In Progress" },
+    { value: AppointmentStatus.COMPLETED, label: "Completed" },
+    { value: AppointmentStatus.CANCELED, label: "Canceled" },
+  ];
+
+  const handleSubmit = async () => {
+    if (newStatus === appointment.status) {
+      toast.info("No changes made");
+      onClose();
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const result = await changeAppointmentStatus(appointment.id, newStatus);
+
+      if (result.success) {
+        toast.success("Appointment status updated successfully");
+
+        // Show prescription reminder if completed
+        if (
+          newStatus === AppointmentStatus.COMPLETED &&
+          !appointment.prescription
+        ) {
+          setTimeout(() => {
+            toast.info(
+              "Don't forget to provide a prescription for this patient",
+              {
+                duration: 5000,
+              }
+            );
+          }, 1000);
+        }
+
+        onClose();
+      } else {
+        toast.error(result.message || "Failed to update status");
+      }
+    } catch (error) {
+      toast.error("An error occurred while updating status");
+      console.error(error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleClose = () => {
+    if (!isSubmitting) {
+      onClose();
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Change Appointment Status</DialogTitle>
+          <DialogDescription>
+            Update the status for {appointment.patient?.name}&apos;s appointment
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-4">
+          {/* Current Status */}
+          <div className="space-y-2">
+            <Label>Current Status</Label>
+            <div className="text-sm font-medium">
+              {
+                statusOptions.find((opt) => opt.value === appointment.status)
+                  ?.label
+              }
+            </div>
+          </div>
+
+          {/* New Status */}
+          <div className="space-y-2">
+            <Label htmlFor="status">New Status</Label>
+            <Select
+              value={newStatus}
+              onValueChange={(value) =>
+                setNewStatus(value as AppointmentStatus)
+              }
+              disabled={isSubmitting}
+            >
+              <SelectTrigger id="status">
+                <SelectValue placeholder="Select status" />
+              </SelectTrigger>
+              <SelectContent>
+                {statusOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Warning for Completion */}
+          {newStatus === AppointmentStatus.COMPLETED &&
+            !appointment.prescription && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5" />
+                  <div className="text-sm text-amber-800">
+                    <strong>Reminder:</strong> After marking as completed,
+                    please provide a prescription for this patient.
+                  </div>
+                </div>
+              </div>
+            )}
+        </div>
+
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleClose}
+            disabled={isSubmitting}
+          >
+            Cancel
+          </Button>
+          <Button onClick={handleSubmit} disabled={isSubmitting}>
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Updating...
+              </>
+            ) : (
+              "Confirm Change"
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+```
+
+- src\components\modules\Doctor\DoctorAppointments\doctorAppointmentColumns.tsx
+
+```tsx 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { Column } from "@/components/shared/ManagementTable";
+import { Badge } from "@/components/ui/badge";
+import {
+  AppointmentStatus,
+  IAppointment,
+} from "@/types/appointments.interface";
+import { format } from "date-fns";
+
+const statusConfig: Record<
+  AppointmentStatus,
+  { variant: any; label: string; className?: string }
+> = {
+  [AppointmentStatus.SCHEDULED]: {
+    variant: "default",
+    label: "Scheduled",
+    className: "bg-blue-500 hover:bg-blue-600",
+  },
+  [AppointmentStatus.INPROGRESS]: {
+    variant: "secondary",
+    label: "In Progress",
+  },
+  [AppointmentStatus.COMPLETED]: {
+    variant: "default",
+    label: "Completed",
+    className: "bg-green-500 hover:bg-green-600",
+  },
+  [AppointmentStatus.CANCELED]: {
+    variant: "destructive",
+    label: "Canceled",
+  },
+};
+
+export const doctorAppointmentColumns: Column<IAppointment>[] = [
+  {
+    header: "Patient",
+    accessor: (appointment) => (
+      <div className="flex items-center gap-2">
+        <div>
+          <p className="font-medium">{appointment.patient?.name || "N/A"}</p>
+          <p className="text-xs text-muted-foreground">
+            {appointment.patient?.email || ""}
+          </p>
+        </div>
+      </div>
+    ),
+  },
+  {
+    header: "Date & Time",
+    accessor: (appointment) => {
+      if (!appointment.schedule?.startDateTime) return "N/A";
+      return (
+        <div className="text-sm">
+          <p className="font-medium">
+            {format(
+              new Date(appointment.schedule.startDateTime),
+              "MMM d, yyyy"
+            )}
+          </p>
+          <p className="text-muted-foreground">
+            {format(new Date(appointment.schedule.startDateTime), "h:mm a")} -{" "}
+            {format(new Date(appointment.schedule.endDateTime), "h:mm a")}
+          </p>
+        </div>
+      );
+    },
+    sortKey: "schedule.startDateTime",
+  },
+  {
+    header: "Status",
+    accessor: (appointment) => {
+      const config = statusConfig[appointment.status];
+      return (
+        <Badge variant={config.variant} className={config.className}>
+          {config.label}
+        </Badge>
+      );
+    },
+  },
+  {
+    header: "Payment",
+    accessor: (appointment) => {
+      const isPaid = appointment.paymentStatus === "PAID";
+      return (
+        <Badge
+          variant={isPaid ? "default" : "secondary"}
+          className={isPaid ? "bg-green-500" : ""}
+        >
+          {isPaid ? "Paid" : "Unpaid"}
+        </Badge>
+      );
+    },
+  },
+  {
+    header: "Prescription",
+    accessor: (appointment) => {
+      return appointment.prescription ? (
+        <Badge variant="outline" className="bg-green-50 text-green-700">
+          Provided
+        </Badge>
+      ) : appointment.status === AppointmentStatus.COMPLETED ? (
+        <Badge variant="outline" className="bg-amber-50 text-amber-700">
+          Pending
+        </Badge>
+      ) : (
+        <span className="text-muted-foreground">-</span>
+      );
+    },
+  },
+];
+
+```
+
+- src\components\modules\Doctor\DoctorAppointments\DoctorAppointmentDetailDialog.tsx
+
+```tsx
+"use client";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { createPrescription } from "@/services/patient/prescription.service";
+import { IAppointment } from "@/types/appointments.interface";
+import { format } from "date-fns";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { toast } from "sonner";
+
+interface DoctorAppointmentDetailDialogProps {
+  appointment: IAppointment | null;
+  open: boolean;
+  onClose: () => void;
+}
+
+export default function DoctorAppointmentDetailDialog({
+  appointment,
+  open,
+  onClose,
+}: DoctorAppointmentDetailDialogProps) {
+  const router = useRouter();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [instructions, setInstructions] = useState("");
+  const [followUpDate, setFollowUpDate] = useState("");
+
+  if (!appointment) return null;
+
+  const { patient, schedule, status, paymentStatus, prescription } =
+    appointment;
+
+  const isCompleted = status === "COMPLETED";
+  const hasPrescription = !!prescription;
+  const canWritePrescription = isCompleted && !hasPrescription;
+
+  const handleSubmitPrescription = async () => {
+    if (!instructions.trim()) {
+      toast.error("Please provide prescription instructions");
+      return;
+    }
+
+    if (instructions.trim().length < 20) {
+      toast.error(
+        "Instructions must be at least 20 characters long for clarity"
+      );
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const prescriptionData: {
+        appointmentId: string;
+        instructions: string;
+        followUpDate?: string;
+      } = {
+        appointmentId: appointment.id,
+        instructions: instructions.trim(),
+      };
+
+      if (followUpDate) {
+        // Convert to ISO-8601 DateTime format
+        prescriptionData.followUpDate = new Date(followUpDate).toISOString();
+      }
+
+      const result = await createPrescription(prescriptionData);
+
+      if (result.success) {
+        toast.success("Prescription created successfully");
+        setInstructions("");
+        setFollowUpDate("");
+        onClose();
+        router.refresh();
+      } else {
+        toast.error(result.message || "Failed to create prescription");
+      }
+    } catch (error) {
+      console.error("Error creating prescription:", error);
+      toast.error("An error occurred while creating prescription");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleClose = () => {
+    setInstructions("");
+    setFollowUpDate("");
+    onClose();
+    router.refresh();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent className="min-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Appointment Details</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-6">
+          {/* Patient Information */}
+          <div className="border rounded-lg p-4 bg-muted/50">
+            <h3 className="font-semibold text-lg mb-3">Patient Information</h3>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="text-muted-foreground">Name</p>
+                <p className="font-medium">{patient?.name}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Email</p>
+                <p className="font-medium">{patient?.email}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Contact Number</p>
+                <p className="font-medium">
+                  {patient?.contactNumber || "Not provided"}
+                </p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Address</p>
+                <p className="font-medium">
+                  {patient?.address || "Not provided"}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Appointment Details */}
+          <div className="border rounded-lg p-4">
+            <h3 className="font-semibold text-lg mb-3">Appointment Details</h3>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="text-muted-foreground">Schedule Date</p>
+                <p className="font-medium">
+                  {schedule?.startDateTime
+                    ? format(new Date(schedule.startDateTime), "PPP")
+                    : "N/A"}
+                </p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Time</p>
+                <p className="font-medium">
+                  {schedule?.startDateTime && schedule?.endDateTime
+                    ? `${format(
+                        new Date(schedule.startDateTime),
+                        "p"
+                      )} - ${format(new Date(schedule.endDateTime), "p")}`
+                    : "N/A"}
+                </p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Status</p>
+                <div>
+                  <Badge
+                    variant="outline"
+                    className={
+                      status === "COMPLETED"
+                        ? "border-green-500 text-green-700 bg-green-50"
+                        : status === "INPROGRESS"
+                        ? "border-blue-500 text-blue-700 bg-blue-50"
+                        : status === "SCHEDULED"
+                        ? "border-purple-500 text-purple-700 bg-purple-50"
+                        : "border-red-500 text-red-700 bg-red-50"
+                    }
+                  >
+                    {status}
+                  </Badge>
+                </div>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Payment</p>
+                <div>
+                  <Badge
+                    variant={
+                      paymentStatus === "PAID" ? "default" : "destructive"
+                    }
+                  >
+                    {paymentStatus}
+                  </Badge>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Prescription Section */}
+          <div className="border rounded-lg p-4">
+            <h3 className="font-semibold text-lg mb-3">Prescription</h3>
+
+            {status === "CANCELED" && (
+              <div className="text-sm text-muted-foreground p-4 bg-red-50 border border-red-200 rounded-md">
+                <p className="text-red-800">
+                  ⚠️ This appointment has been canceled. No prescription can be
+                  provided.
+                </p>
+              </div>
+            )}
+
+            {!isCompleted && status !== "CANCELED" && (
+              <div className="text-sm text-muted-foreground p-4 bg-muted/50 rounded-md">
+                <p>
+                  You can write a prescription once the appointment is marked as{" "}
+                  <span className="font-semibold text-green-700">
+                    COMPLETED
+                  </span>
+                  .
+                </p>
+              </div>
+            )}
+
+            {canWritePrescription && (
+              <div className="space-y-4">
+                <div className="bg-amber-50 border border-amber-200 rounded-md p-3 mb-4">
+                  <p className="text-sm text-amber-800">
+                    ⚠️ Once created, prescriptions cannot be edited or deleted.
+                    Please ensure all information is correct.
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="instructions">
+                    Instructions <span className="text-destructive">*</span>
+                  </Label>
+                  <Textarea
+                    id="instructions"
+                    placeholder="Enter prescription instructions (minimum 20 characters)..."
+                    value={instructions}
+                    onChange={(e) => setInstructions(e.target.value)}
+                    rows={6}
+                    className="resize-none"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {instructions.length} / 20 characters minimum
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="followUpDate">
+                    Follow-up Date & Time (Optional)
+                  </Label>
+                  <Input
+                    id="followUpDate"
+                    type="datetime-local"
+                    value={followUpDate}
+                    onChange={(e) => setFollowUpDate(e.target.value)}
+                    min={new Date().toISOString().slice(0, 16)}
+                  />
+                </div>
+
+                <Button
+                  onClick={handleSubmitPrescription}
+                  disabled={isSubmitting}
+                  className="w-full"
+                >
+                  {isSubmitting
+                    ? "Creating Prescription..."
+                    : "Create Prescription"}
+                </Button>
+              </div>
+            )}
+
+            {hasPrescription && (
+              <div className="space-y-4">
+                <div className="bg-green-50 border border-green-200 rounded-md p-3 mb-4">
+                  <p className="text-sm text-green-800">
+                    ✓ Prescription has been provided for this appointment
+                  </p>
+                  <p className="text-xs text-green-700 mt-1">
+                    Note: Appointment status cannot be changed once prescription
+                    is provided
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">
+                      Instructions
+                    </p>
+                    <div className="bg-muted/50 p-3 rounded-md">
+                      <p className="text-sm whitespace-pre-wrap">
+                        {prescription.instructions}
+                      </p>
+                    </div>
+                  </div>
+
+                  {prescription.followUpDate && (
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-1">
+                        Follow-up Date
+                      </p>
+                      <p className="text-sm font-medium">
+                        {format(new Date(prescription.followUpDate), "PPP")}
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="text-xs text-muted-foreground italic pt-2 border-t">
+                    Note: Prescriptions cannot be edited or deleted once created
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex justify-end pt-4 border-t">
+          <Button variant="outline" onClick={handleClose}>
+            Close
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+```
+
+- src\components\modules\Doctor\DoctorAppointments\DoctorAppointmentTable.tsx
+
+```tsx
+
+"use client";
+
+import ManagementTable from "@/components/shared/ManagementTable";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { toast } from "sonner";
+import { doctorAppointmentColumns } from "./doctorAppointmentColumns";
+import {
+  AppointmentStatus,
+  IAppointment,
+} from "@/types/appointments.interface";
+import ChangeAppointmentStatusDialog from "./ChangeAppointmentStatusDialog";
+import DoctorAppointmentDetailDialog from "./DoctorAppointmentDetailDialog";
+
+interface DoctorAppointmentsTableProps {
+  appointments: IAppointment[];
+}
+
+export default function DoctorAppointmentsTable({
+  appointments = [],
+}: DoctorAppointmentsTableProps) {
+  const router = useRouter();
+  const [viewingAppointment, setViewingAppointment] =
+    useState<IAppointment | null>(null);
+  const [changingStatusAppointment, setChangingStatusAppointment] =
+    useState<IAppointment | null>(null);
+
+  const handleView = (appointment: IAppointment) => {
+    setViewingAppointment(appointment);
+  };
+
+  const handleStatusChange = (appointment: IAppointment) => {
+    setChangingStatusAppointment(appointment);
+  };
+
+  // Custom wrapper to conditionally show edit action
+  const handleEditClick = (appointment: IAppointment) => {
+    // Cannot change status for:
+    // 1. Canceled appointments
+    // 2. Completed appointments with prescriptions
+    if (appointment.status === AppointmentStatus.CANCELED) {
+      toast.error("Cannot change status for canceled appointments", {
+        description: "Canceled appointments are final and cannot be modified.",
+      });
+      return;
+    }
+
+    if (
+      appointment.status === AppointmentStatus.COMPLETED &&
+      !!appointment.prescription
+    ) {
+      toast.error("Cannot change status once prescription is provided", {
+        description:
+          "Appointment status is locked after prescription is created to maintain medical record integrity.",
+      });
+      return;
+    }
+
+    handleStatusChange(appointment);
+  };
+
+  return (
+    <>
+      <ManagementTable
+        data={appointments}
+        columns={doctorAppointmentColumns}
+        onView={handleView}
+        onEdit={handleEditClick}
+        getRowKey={(appointment) => appointment.id}
+        emptyMessage="No appointments found"
+      />
+
+      {/* View Detail Dialog */}
+      {viewingAppointment && (
+        <DoctorAppointmentDetailDialog
+          appointment={viewingAppointment}
+          open={!!viewingAppointment}
+          onClose={() => {
+            setViewingAppointment(null);
+            router.refresh();
+          }}
+        />
+      )}
+
+      {/* Change Status Dialog */}
+      {changingStatusAppointment && (
+        <ChangeAppointmentStatusDialog
+          appointment={changingStatusAppointment}
+          isOpen={!!changingStatusAppointment}
+          onClose={() => {
+            setChangingStatusAppointment(null);
+            router.refresh();
+          }}
+        />
+      )}
+    </>
+  );
+}
+
+```
 
 ## 73-8 Creating Components And Page For Prescription List Table For Doctor
 
