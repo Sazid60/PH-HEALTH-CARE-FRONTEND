@@ -34,14 +34,11 @@ export async function updateMyProfile(formData: FormData) {
             uploadFormData.append('file', file);
         }
 
-        console.log(uploadFormData)
-
         const response = await serverFetch.patch(`/user/update-my-profile`, {
             body: uploadFormData,
         });
 
         const result = await response.json();
-        console.log(result)
 
         revalidateTag("user-info", { expire: 0 });
         return result;
@@ -86,7 +83,6 @@ export async function resetPassword(_prevState: any, formData: FormData) {
         }
 
         const verifiedToken = jwt.verify(accessToken as string, process.env.JWT_SECRET!) as jwt.JwtPayload;
-        console.log(verifiedToken)
 
         const userRole: UserRole = verifiedToken.role;
 
@@ -234,7 +230,7 @@ export async function getNewAccessToken() {
             throw new Error(result.message || "Token refresh failed");
         }
 
-        // will be used in proxy
+
         return {
             tokenRefreshed: true,
             success: true,

@@ -25,19 +25,19 @@ export async function getAppointments(queryString?: string) {
  * GET APPOINTMENT BY ID
  * API: GET /appointment/:id
  */
-export async function getAppointmentById(id: string) {
-    try {
-        const response = await serverFetch.get(`/appointment/${id}`)
-        const result = await response.json();
-        return result;
-    } catch (error: any) {
-        console.log(error);
-        return {
-            success: false,
-            message: `${process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'}`
-        };
-    }
-}
+// export async function getAppointmentById(id: string) {
+//     try {
+//         const response = await serverFetch.get(`/appointment/${id}`)
+//         const result = await response.json();
+//         return result;
+//     } catch (error: any) {
+//         console.log(error);
+//         return {
+//             success: false,
+//             message: `${process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'}`
+//         };
+//     }
+// }
 
 /**
  * CHANGE APPOINTMENT STATUS
